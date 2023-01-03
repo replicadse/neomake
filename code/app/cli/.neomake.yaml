@@ -1,9 +1,27 @@
 version: 1.0.0
 
+env:
+  DEFAULT_ENV_VAR: default var
+  OVERRIDE_ENV_VAR_0: old e0
+  OVERRIDE_ENV_VAR_1: old e1
+
 .cargo-build: &cargo-build
   - cargo build $CARGO_ARGS
 
 chains:
+  test:
+    matrix:
+      - env:
+          OVERRIDE_ENV_VAR_0: new e0
+    tasks:
+      - env:
+          OVERRIDE_ENV_VAR_1: new e1
+        run:
+          - printf "$DEFAULT_ENV_VAR"
+          - printf "$OVERRIDE_ENV_VAR_0"
+          - printf "$OVERRIDE_ENV_VAR_1"
+          - printf "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
+
   "app/cli":
     matrix:
       - workdir: ./code/apps/cli
@@ -13,4 +31,5 @@ chains:
         env:
           CARGO_ARGS: "--release"
     tasks:
-      - run: *cargo-build
+      - env: {}
+        run: *cargo-build

@@ -4,12 +4,14 @@ use std::collections::HashMap;
 #[serde(rename_all = "snake_case")]
 pub struct Config {
     pub version: String,
+    pub env: Option<HashMap<String, String>>,
     pub chains: HashMap<String, Chain>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct Chain {
+    pub env: Option<HashMap<String, String>>,
     pub matrix: Vec<MatrixEntry>,
     pub tasks: Vec<Task>,
 }
@@ -18,12 +20,14 @@ pub struct Chain {
 #[serde(rename_all = "snake_case")]
 pub struct MatrixEntry {
     pub workdir: Option<String>,
-    pub env: HashMap<String, String>,
+    pub env: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct Task {
+    pub workdir: Option<String>,
+    pub env: Option<HashMap<String, String>>,
     pub run: Vec<String>,
 }
 

@@ -343,6 +343,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "interactive_process"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5bea3f0b65ff4df5241d0d586df4ab529b7584ee9ada2ad163ab756032733b9"
+
+[[package]]
 name = "itoa"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -437,6 +443,7 @@ dependencies = [
  "clap",
  "futures",
  "handlebars",
+ "interactive_process",
  "serde",
  "serde_json",
  "serde_yaml",

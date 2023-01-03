@@ -11,6 +11,8 @@ use std::{
     result::Result,
 };
 
+use interactive_process::InteractiveProcess;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = args::ClapArgumentLoader::load()?;
@@ -57,11 +59,11 @@ async fn run(
         }
     }
 
-    let selected_chain = &config.chains[&chain];
+    let sel_chain = &config.chains[&chain];
     let mut hb = handlebars::Handlebars::new();
     hb.set_strict_mode(true);
 
-    for matrix in &selected_chain.matrix {
+    for mat in &sel_chain.matrix {
         let mut values_json = serde_json::Value::Object(serde_json::Map::new());
         for arg in &args {
             let namespaces_vec: Vec<String> = arg.0.split('.').map(|s| s.to_string()).collect();
@@ -69,29 +71,33 @@ async fn run(
             recursive_add(&mut namespaces, &mut values_json, arg.1);
         }
 
-        let mut rendered_commands = Vec::<String>::new();
-        for task in &selected_chain.tasks {
+        for task in &sel_chain.tasks {
             for cmd in &task.run {
-                rendered_commands.push(hb.render_template(cmd, &values_json)?)
-            }
-        }
+                let rendered_cmd = hb.render_template(cmd, &values_json)?;
+                let final_cmd = if let Some(workdir) = &task.workdir {
+                    format!("cd {} && {}", workdir, rendered_cmd)
+                } else if let Some(workdir) = &mat.workdir {
+                    format!("cd {} && {}", workdir, rendered_cmd)
+                } else {
+                    rendered_cmd.to_owned()
+                };
 
-        for cmd in rendered_commands {
-            let final_cmd = if let Some(workdir) = &matrix.workdir {
-                format!("cd {} && {}", workdir, cmd)
-            } else {
-                cmd
-            };
-            let cmd_out = std::process::Command::new("sh")
-                .envs(&matrix.env)
-                .arg("-c")
-                .arg(final_cmd)
-                .output()?;
-            if cmd_out.stderr.len() > 0 {
-                println!("{}", String::from_utf8(cmd_out.stderr)?);
-            }
-            if cmd_out.stdout.len() > 0 {
-                println!("{}", String::from_utf8(cmd_out.stdout)?);
+                let mut envs_merged = HashMap::<&String, &String>::new();
+                for source in vec![&config.env, &sel_chain.env, &mat.env, &task.env] {
+                    if let Some(m) = source {
+                        envs_merged.extend(m);
+                    }
+                }
+
+                let mut cmd_proc = std::process::Command::new("sh");
+                cmd_proc.envs(envs_merged);
+                cmd_proc.arg("-c");
+                cmd_proc.arg(final_cmd);
+                InteractiveProcess::new(cmd_proc, |l| match l {
+                    | Ok(v) => println!("{}", v),
+                    | Err(e) => println!("{}", e),
+                })?
+                .wait()?;
             }
         }
     }
