@@ -20,6 +20,10 @@ chains:
           - printf "$DEFAULT_ENV_VAR"
           - printf "$OVERRIDE_ENV_VAR_0"
           - printf "$OVERRIDE_ENV_VAR_1"
+          - |
+            echo "+ some"
+            echo "+ multiline"
+            echo "+ command"
           - printf "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
           - unknown-command
           - printf "too far!"
