@@ -1,11 +1,10 @@
 [package]
 name = "neomake"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["alexander weber <aw@voidpointergroup.com>"]
 edition = "2018"
 
 [dependencies]
-neomake-error = { path = "../../libs/error" }
 ureq = "^2.4"
 clap = "^3.2"
 tokio = { version = "^1.23", features = ["full"] }

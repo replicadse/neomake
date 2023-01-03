@@ -430,14 +430,13 @@ dependencies = [
 
 [[package]]
 name = "neomake"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "base64",
  "chrono",
  "clap",
  "futures",
  "handlebars",
- "neomake-error",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -445,10 +444,6 @@ dependencies = [
  "ureq",
  "uuid",
 ]
-
-[[package]]
-name = "neomake-error"
-version = "0.0.0"
 
 [[package]]
 name = "num-integer"

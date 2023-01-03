@@ -26,25 +26,5 @@ macro_rules! make_error {
     };
 }
 
-#[macro_export]
-macro_rules! make_error_enum {
-    ($name:ident, $($en:ident),*) => {
-        #[derive(Debug, Clone)]
-        /// An error type.
-        pub enum $name {
-            $($en (String),)*
-        }
-
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                match self {
-                    $( Self::$en(e) => {
-                        f.write_str(e)
-                    }, )*
-                }
-            }
-        }
-
-        impl std::error::Error for $name {}
-    };
-}
+make_error!(UnknownCommandError);
+make_error!(MissingArgumentError);
