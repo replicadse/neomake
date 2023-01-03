@@ -1,6 +1,6 @@
 [package]
 name = "neomake"
-version = "0.1.3"
+version = "0.0.0"
 authors = ["alexander weber <aw@voidpointergroup.com>"]
 edition = "2018"
 description = "Yet another task runner as make alternative, inspired by GitLab pipelines."

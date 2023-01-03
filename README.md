@@ -17,9 +17,9 @@
   
 ## How to use
 
-- `cargo install neomake`
-- `neomake init`
-- `neomake run -c test -a args.test="some argument"`
+1. `cargo install neomake`
+2. `neomake init`
+3. `neomake run -c test -a args.test="some argument"`
 
 ## Why
 

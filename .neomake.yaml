@@ -1,10 +1,18 @@
 version: 1.0
 
-.cargo-build: &cargo-build
-  - cargo build $CARGO_ARGS
-
 chains:
-  "app/cli":
+  publish:
+    matrix:
+      - workdir: ./code/app/cli
+    tasks:
+      - run:
+          - cargo build --release
+      - run:
+          - sed 's/version = "0.0.0"/version = "'{{ version }}'"/g' Cargo.toml > Cargo.toml.tmp
+          - mv Cargo.toml.tmp Cargo.toml
+          - cargo publish --allow-dirty
+
+  build:
     matrix:
       - workdir: ./code/app/cli
         env:
@@ -13,4 +21,5 @@ chains:
         env:
           CARGO_ARGS: "--release"
     tasks:
-      - run: *cargo-build
+      - run:
+          - cargo build $CARGO_ARGS
