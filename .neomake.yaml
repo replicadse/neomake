@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.0
 
 .cargo-build: &cargo-build
   - cargo build $CARGO_ARGS

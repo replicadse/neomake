@@ -32,22 +32,31 @@ pub struct Task {
 }
 
 pub(crate) fn default_config() -> String {
-    r###"version: 1.0.0
+    r###"version: 1.0
+
+env:
+  DEFAULT_ENV_VAR: default var
+  OVERRIDE_ENV_VAR_0: old e0
+  OVERRIDE_ENV_VAR_1: old e1
 
 .cargo-build: &cargo-build
   - cargo build $CARGO_ARGS
 
 chains:
-  "app/cli":
+  test:
     matrix:
-      - workdir: ./code/apps/cli
-        env:
-          CARGO_ARGS: ""
-      - workdir: ./code/apps/cli
-        env:
-          CARGO_ARGS: "--release"
+      - env:
+          OVERRIDE_ENV_VAR_0: new e0
     tasks:
-      - run: *cargo-build
+      - env:
+          OVERRIDE_ENV_VAR_1: new e1
+        run:
+          - printf "$DEFAULT_ENV_VAR"
+          - printf "$OVERRIDE_ENV_VAR_0"
+          - printf "$OVERRIDE_ENV_VAR_1"
+          - printf "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
+          - unknown-command
+          - printf "too far!"
 "###
     .to_owned()
 }

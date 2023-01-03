@@ -1,4 +1,4 @@
-version: 1.0.0
+version: 1.0
 
 env:
   DEFAULT_ENV_VAR: default var
@@ -21,6 +21,8 @@ chains:
           - printf "$OVERRIDE_ENV_VAR_0"
           - printf "$OVERRIDE_ENV_VAR_1"
           - printf "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
+          - unknown-command
+          - printf "too far!"
 
   "app/cli":
     matrix:

@@ -92,12 +92,21 @@ async fn run(
                 let mut cmd_proc = std::process::Command::new("sh");
                 cmd_proc.envs(envs_merged);
                 cmd_proc.arg("-c");
-                cmd_proc.arg(final_cmd);
-                InteractiveProcess::new(cmd_proc, |l| match l {
+                cmd_proc.arg(&final_cmd);
+                let cmd_exit_code = InteractiveProcess::new(cmd_proc, |l| match l {
                     | Ok(v) => println!("{}", v),
                     | Err(e) => println!("{}", e),
                 })?
-                .wait()?;
+                .wait()?
+                .code();
+                if let Some(code) = cmd_exit_code {
+                    if code != 0 {
+                        return Err(Box::new(crate::error::ChildProcessError::new(&format!(
+                            "command \"{}\" failed with code {}",
+                            &final_cmd, code,
+                        ))));
+                    }
+                }
             }
         }
     }

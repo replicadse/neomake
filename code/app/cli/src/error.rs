@@ -26,5 +26,6 @@ macro_rules! make_error {
     };
 }
 
+make_error!(ChildProcessError);
 make_error!(UnknownCommandError);
 make_error!(MissingArgumentError);
