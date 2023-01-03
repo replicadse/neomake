@@ -6,10 +6,10 @@ version: 1.0.0
 chains:
   "app/cli":
     matrix:
-      - workdir: ./code/apps/cli
+      - workdir: ./code/app/cli
         env:
           CARGO_ARGS: ""
-      - workdir: ./code/apps/cli
+      - workdir: ./code/app/cli
         env:
           CARGO_ARGS: "--release"
     tasks:
