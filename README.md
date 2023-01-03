@@ -8,10 +8,10 @@
 
 ## Features
 
-- **task chains**\
+- **Task chains**\
   Execute many tasks in sequence, easily re-use single tasks using YAML anchors.
-- **matrices**\
-  Invoke task chains many times by specifying multiple matrices used for parameterizing each single execution. This feature is heavily inspired by the GitLab pipeline's matrix builds.
+- **Invocation matrix**\
+  Invoke task chains many times by specifying multiple entries in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's matrix builds.
 - **YAML**\
   No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for features such as YAML anchors (and everything in the YAML 1.2 standard).
   
