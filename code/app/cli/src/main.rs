@@ -1,6 +1,7 @@
 mod args;
 mod config;
 mod error;
+mod output;
 
 use std::{
     collections::{
@@ -9,6 +10,10 @@ use std::{
     },
     error::Error,
     result::Result,
+    sync::{
+        Arc,
+        Mutex,
+    },
 };
 
 use interactive_process::InteractiveProcess;
@@ -17,14 +22,8 @@ use interactive_process::InteractiveProcess;
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = args::ClapArgumentLoader::load()?;
     match args.command {
-        | args::Command::Init => {
-            init().await?;
-            Ok(())
-        },
-        | args::Command::Run { config, chain, args } => {
-            run(config, chain, args).await?;
-            Ok(())
-        },
+        | args::Command::Init => init().await,
+        | args::Command::Run { config, chain, args } => run(config, chain, args).await,
     }
 }
 
@@ -63,6 +62,8 @@ async fn run(
     let mut hb = handlebars::Handlebars::new();
     hb.set_strict_mode(true);
 
+    let contr = Arc::new(Mutex::new(output::Controller::new(5)));
+
     for mat in &sel_chain.matrix {
         let mut values_json = serde_json::Value::Object(serde_json::Map::new());
         for arg in &args {
@@ -93,18 +94,21 @@ async fn run(
                 cmd_proc.envs(envs_merged);
                 cmd_proc.arg("-c");
                 cmd_proc.arg(&final_cmd);
-                let cmd_exit_code = InteractiveProcess::new(cmd_proc, |l| match l {
-                    | Ok(v) => println!("{}", v),
-                    | Err(e) => println!("{}", e),
+                let closure_controller = contr.clone();
+                let cmd_exit_code = InteractiveProcess::new(cmd_proc, move |l| match l {
+                    | Ok(v) => {
+                        let mut lock = closure_controller.lock().unwrap();
+                        lock.append(v);
+                        lock.draw().unwrap();
+                    },
+                    | Err(..) => {},
                 })?
                 .wait()?
                 .code();
                 if let Some(code) = cmd_exit_code {
                     if code != 0 {
-                        return Err(Box::new(crate::error::ChildProcessError::new(&format!(
-                            "command \"{}\" failed with code {}",
-                            &final_cmd, code,
-                        ))));
+                        let err_msg = format!("command \"{}\" failed with code {}", &final_cmd, code,);
+                        return Err(Box::new(crate::error::ChildProcessError::new(&err_msg)));
                     }
                 }
             }

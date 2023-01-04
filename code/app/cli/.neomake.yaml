@@ -9,6 +9,13 @@ env:
   - cargo build $CARGO_ARGS
 
 chains:
+  minimal:
+    matrix:
+      - {}
+    tasks:
+      - run:
+          - printf "minimal"
+
   test:
     matrix:
       - env:
@@ -18,13 +25,28 @@ chains:
           OVERRIDE_ENV_VAR_1: new e1
         run:
           - printf "$DEFAULT_ENV_VAR"
+          - sleep 1
           - printf "$OVERRIDE_ENV_VAR_0"
+          - sleep 1
           - printf "$OVERRIDE_ENV_VAR_1"
+          - sleep 1
+          - echo "A"
+          - sleep 1
+          - echo "B"
+          - sleep 1
+          - echo "C"
+          - sleep 1
+          - echo "D"
+          - sleep 1
           - |
             echo "+ some"
+            sleep 1
             echo "+ multiline"
+            sleep 1
             echo "+ command"
+            sleep 1
           - printf "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
+          - sleep 1
           - unknown-command
           - printf "too far!"
 
