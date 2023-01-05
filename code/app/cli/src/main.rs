@@ -125,12 +125,13 @@ async fn exec_chain(
         for task in &chain.tasks {
             for cmd in &task.run {
                 let rendered_cmd = hb.render_template(cmd, &values_json)?;
-                let final_cmd = if let Some(workdir) = &task.workdir {
-                    format!("cd {} && {}", workdir, rendered_cmd)
+
+                let workdir = if let Some(workdir) = &task.workdir {
+                    Some(workdir)
                 } else if let Some(workdir) = &mat.workdir {
-                    format!("cd {} && {}", workdir, rendered_cmd)
+                    Some(workdir)
                 } else {
-                    rendered_cmd.to_owned()
+                    None
                 };
 
                 let mut envs_merged = HashMap::<&String, &String>::new();
@@ -142,8 +143,11 @@ async fn exec_chain(
 
                 let mut cmd_proc = std::process::Command::new("sh");
                 cmd_proc.envs(envs_merged);
+                if let Some(w) = workdir {
+                    cmd_proc.current_dir(w);
+                }
                 cmd_proc.arg("-c");
-                cmd_proc.arg(&final_cmd);
+                cmd_proc.arg(&rendered_cmd);
                 let closure_controller = output.clone();
                 let cmd_exit_code = InteractiveProcess::new(cmd_proc, move |l| match l {
                     | Ok(v) => {
@@ -157,7 +161,7 @@ async fn exec_chain(
                 .code();
                 if let Some(code) = cmd_exit_code {
                     if code != 0 {
-                        let err_msg = format!("command \"{}\" failed with code {}", &final_cmd, code,);
+                        let err_msg = format!("command \"{}\" failed with code {}", &rendered_cmd, code,);
                         return Err(Box::new(crate::error::ChildProcessError::new(&err_msg)));
                     }
                 }
