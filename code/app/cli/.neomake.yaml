@@ -9,14 +9,45 @@ env:
   - cargo build $CARGO_ARGS
 
 chains:
-  minimal:
+  a:
     matrix:
-      - {}
+      - env:
+          VALUE: a 0
+      - env:
+          VALUE: a 1
+      - env:
+          VALUE: a 2
+    tasks:
+      - run:
+          - printf "$VALUE"
+  b:
+    pre:
+      - a
+    matrix:
+      - env:
+          VALUE: b 0
+      - env:
+          VALUE: b 1
+      - env:
+          VALUE: b 2
+    tasks:
+      - run:
+          - printf "$VALUE"
+  c:
+    pre:
+      - b
+    tasks:
+      - run:
+          - printf "c"
+
+  minimal:
     tasks:
       - run:
           - printf "minimal"
 
   test:
+    pre:
+      - minimal
     matrix:
       - env:
           OVERRIDE_ENV_VAR_0: new e0
@@ -52,10 +83,10 @@ chains:
 
   "app/cli":
     matrix:
-      - workdir: ./code/apps/cli
+      - workdir: ./code/app/cli
         env:
           CARGO_ARGS: ""
-      - workdir: ./code/apps/cli
+      - workdir: ./code/app/cli
         env:
           CARGO_ARGS: "--release"
     tasks:

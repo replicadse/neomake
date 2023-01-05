@@ -12,7 +12,8 @@ pub struct Config {
 #[serde(rename_all = "snake_case")]
 pub struct Chain {
     pub env: Option<HashMap<String, String>>,
-    pub matrix: Vec<MatrixEntry>,
+    pub pre: Option<Vec<String>>,
+    pub matrix: Option<Vec<MatrixEntry>>,
     pub tasks: Vec<Task>,
 }
 
@@ -21,6 +22,14 @@ pub struct Chain {
 pub struct MatrixEntry {
     pub workdir: Option<String>,
     pub env: Option<HashMap<String, String>>,
+}
+impl Default for MatrixEntry {
+    fn default() -> Self {
+        Self {
+            env: None,
+            workdir: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
