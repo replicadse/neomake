@@ -23,16 +23,9 @@ chains:
   b:
     pre:
       - a
-    matrix:
-      - env:
-          VALUE: b 0
-      - env:
-          VALUE: b 1
-      - env:
-          VALUE: b 2
     tasks:
       - run:
-          - printf "$VALUE"
+          - printf "b"
   c:
     pre:
       - b
@@ -48,6 +41,8 @@ chains:
   test:
     pre:
       - minimal
+      - a
+      - b
     matrix:
       - env:
           OVERRIDE_ENV_VAR_0: new e0
@@ -80,15 +75,3 @@ chains:
           - sleep 1
           - unknown-command
           - printf "too far!"
-
-  "app/cli":
-    matrix:
-      - workdir: ./code/app/cli
-        env:
-          CARGO_ARGS: ""
-      - workdir: ./code/app/cli
-        env:
-          CARGO_ARGS: "--release"
-    tasks:
-      - env: {}
-        run: *cargo-build

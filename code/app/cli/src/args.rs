@@ -6,12 +6,22 @@ use std::{
 
 #[derive(Debug)]
 pub struct CallArgs {
+    pub experimental: bool,
     pub command: Command,
 }
 
 impl CallArgs {
     pub fn validate(&self) -> Result<(), Box<dyn Error>> {
-        Ok(())
+        if self.experimental {
+            return Ok(());
+        }
+
+        match &self.command {
+            | Command::Describe { .. } => Err(Box::new(crate::error::ExperimentalCommandError::new(
+                "command is experimental",
+            ))),
+            | _ => Ok(()),
+        }
     }
 }
 
@@ -23,6 +33,10 @@ pub enum Command {
         config: crate::config::Config,
         chain: String,
         args: HashMap<String, String>,
+    },
+    Describe {
+        config: crate::config::Config,
+        chain: String,
     },
 }
 
@@ -81,26 +95,34 @@ impl ClapArgumentLoader {
                             .takes_value(true),
                     ),
             )
+            .subcommand(
+                clap::App::new("describe")
+                    .about("")
+                    .arg(
+                        clap::Arg::new("config")
+                            .short('f')
+                            .long("config")
+                            .value_name("CONFIG")
+                            .help("The configuration file to use.")
+                            .default_value("./.neomake.yaml")
+                            .multiple_values(false)
+                            .required(false)
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::new("chain")
+                            .short('c')
+                            .long("chain")
+                            .value_name("CHAIN")
+                            .help("Which chain to execute.")
+                            .multiple_values(false)
+                            .required(true)
+                            .takes_value(true),
+                    ),
+            )
             .get_matches();
 
-        let cmd = if let Some(..) = command.subcommand_matches("init") {
-            Command::Init
-        } else if let Some(x) = command.subcommand_matches("run") {
-            let chain = x
-                .value_of("chain")
-                .ok_or(Box::new(crate::error::MissingArgumentError::new(
-                    "chain was not specified",
-                )))?;
-
-            // parse args
-            let mut args_map: HashMap<String, String> = HashMap::new();
-            if let Some(args) = x.values_of("arg") {
-                for v_arg in args {
-                    let spl: Vec<&str> = v_arg.splitn(2, "=").collect();
-                    args_map.insert(spl[0].to_owned(), spl[1].to_owned());
-                }
-            }
-
+        fn parse_config_and_chain(x: &clap::ArgMatches) -> Result<(crate::config::Config, String), Box<dyn Error>> {
             // parse config
             let config_content = if x.is_present("config") {
                 let config_param = x.value_of("config").unwrap();
@@ -110,16 +132,47 @@ impl ClapArgumentLoader {
                     "configuration has not been specified",
                 )));
             };
+
+            let chain = x
+                .value_of("chain")
+                .ok_or(Box::new(crate::error::MissingArgumentError::new(
+                    "chain was not specified",
+                )))?;
+
+            Ok((serde_yaml::from_str(&config_content)?, chain.to_owned()))
+        }
+
+        let cmd = if let Some(..) = command.subcommand_matches("init") {
+            Command::Init
+        } else if let Some(x) = command.subcommand_matches("run") {
+            // parse args
+            let mut args_map: HashMap<String, String> = HashMap::new();
+            if let Some(args) = x.values_of("arg") {
+                for v_arg in args {
+                    let spl: Vec<&str> = v_arg.splitn(2, "=").collect();
+                    args_map.insert(spl[0].to_owned(), spl[1].to_owned());
+                }
+            }
+            let args_cc = parse_config_and_chain(x)?;
             Command::Run {
-                chain: chain.to_owned(),
+                config: args_cc.0,
+                chain: args_cc.1,
                 args: args_map,
-                config: serde_yaml::from_str(&config_content)?,
+            }
+        } else if let Some(x) = command.subcommand_matches("describe") {
+            let args_cc = parse_config_and_chain(x)?;
+            Command::Describe {
+                config: args_cc.0,
+                chain: args_cc.1,
             }
         } else {
             return Err(Box::new(crate::error::UnknownCommandError::new("unknown command")));
         };
 
-        let callargs = CallArgs { command: cmd };
+        let callargs = CallArgs {
+            experimental: command.contains_id("experimental"),
+            command: cmd,
+        };
 
         callargs.validate()?;
         Ok(callargs)

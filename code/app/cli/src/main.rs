@@ -12,6 +12,7 @@ use std::{
         VecDeque,
     },
     error::Error,
+    iter::FromIterator,
     result::Result,
     sync::{
         Arc,
@@ -27,12 +28,63 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match args.command {
         | args::Command::Init => init().await,
         | args::Command::Run { config, chain, args } => run(config, chain, args).await,
+        | args::Command::Describe { config, chain } => describe(config, chain).await,
     }
 }
 
 async fn init() -> Result<(), Box<dyn Error>> {
     std::fs::write("./.neomake.yaml", crate::config::default_config())?;
     Ok(())
+}
+
+fn determine_order(
+    chains: &HashMap<String, config::Chain>,
+    entry: &str,
+) -> Result<Vec<HashSet<String>>, Box<dyn Error>> {
+    let mut map = HashMap::<String, Vec<String>>::new();
+
+    let mut seen = HashSet::<String>::new();
+    let mut pending = VecDeque::<String>::new();
+    pending.push_back(entry.to_owned());
+
+    while let Some(next) = pending.pop_back() {
+        if seen.contains(&next) {
+            continue;
+        }
+        seen.insert(next.clone());
+
+        if let Some(pre) = &chains[&next].pre {
+            map.insert(next, pre.clone());
+            pending.extend(pre.clone());
+        } else {
+            map.insert(next, Vec::<String>::new());
+        }
+    }
+    seen.clear();
+
+    let mut result = Vec::<HashSet<String>>::new();
+    while map.len() > 0 {
+        let leafs = map
+            .drain_filter(|_, v| {
+                for v_item in v {
+                    if !seen.contains(v_item) {
+                        return false;
+                    }
+                }
+                true
+            })
+            .collect::<Vec<_>>();
+        if leafs.len() == 0 {
+            return Err(Box::new(crate::error::TaskChainRecursion::new(
+                "recursion in graph detected",
+            )));
+        }
+        let set = leafs.iter().map(|x| x.0.clone());
+        seen.extend(set.clone());
+        result.push(HashSet::<String>::from_iter(set));
+    }
+
+    Ok(result)
 }
 
 async fn exec_chain(
@@ -60,50 +112,6 @@ async fn exec_chain(
                 recursive_add(namespace, p, value);
             },
         }
-    }
-
-    fn determine_order(chains: &HashMap<String, config::Chain>, entry: &str) -> Result<Vec<String>, Box<dyn Error>> {
-        let mut map = HashMap::<String, Vec<String>>::new();
-
-        let mut pending_seen = HashSet::<String>::new();
-        let mut pending = VecDeque::<String>::new();
-        pending.push_back(entry.to_owned());
-
-        while let Some(next) = pending.pop_back() {
-            if pending_seen.contains(&next) {
-                continue;
-            }
-            pending_seen.insert(next.clone());
-
-            if let Some(pre) = &chains[&next].pre {
-                map.insert(next, pre.clone());
-                pending.extend(pre.clone());
-            } else {
-                map.insert(next, Vec::<String>::new());
-            }
-        }
-
-        let mut result = Vec::<String>::new();
-        while map.len() > 0 {
-            let leafs = map
-                .drain_filter(|_, v| {
-                    for v_item in v {
-                        if !result.contains(v_item) {
-                            return false;
-                        }
-                    }
-                    true
-                })
-                .collect::<Vec<_>>();
-            if leafs.len() == 0 {
-                return Err(Box::new(crate::error::TaskChainRecursion::new(
-                    "recursion in graph detected",
-                )));
-            }
-            result.extend(leafs.iter().map(|x| x.0.clone()));
-        }
-
-        Ok(result)
     }
 
     fn execute_matrix_entry(
@@ -170,21 +178,23 @@ async fn exec_chain(
         Ok(())
     }
 
-    for chain_name in determine_order(&conf.chains, &chain)? {
-        let chain = &conf.chains[&chain_name];
+    for stage_chains in determine_order(&conf.chains, &chain)? {
+        for chain_name in stage_chains {
+            let chain = &conf.chains[&chain_name];
 
-        if let Some(matrix) = &chain.matrix {
-            for mat in matrix {
-                execute_matrix_entry(&conf, chain, mat, &args, output.clone())?;
+            if let Some(matrix) = &chain.matrix {
+                for mat in matrix {
+                    execute_matrix_entry(&conf, chain, mat, &args, output.clone())?;
+                }
+            } else {
+                execute_matrix_entry(
+                    &conf,
+                    chain,
+                    &config::MatrixEntry { ..Default::default() },
+                    &args,
+                    output.clone(),
+                )?;
             }
-        } else {
-            execute_matrix_entry(
-                &conf,
-                chain,
-                &config::MatrixEntry { ..Default::default() },
-                &args,
-                output.clone(),
-            )?;
         }
     }
     Ok(())
@@ -197,5 +207,11 @@ async fn run(
 ) -> Result<(), Box<dyn Error>> {
     let contr = Arc::new(Mutex::new(output::Controller::new(10)));
     exec_chain(&config, chain, &args, contr.clone()).await?;
+    Ok(())
+}
+
+async fn describe(config: crate::config::Config, chain: String) -> Result<(), Box<dyn Error>> {
+    let structure = determine_order(&config.chains, &chain)?;
+    println!("{:?}", structure);
     Ok(())
 }
