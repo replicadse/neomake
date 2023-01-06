@@ -27,7 +27,12 @@ impl CallArgs {
 }
 
 #[derive(Debug)]
-/// The (sub-)command representation for the call args.
+pub enum Format {
+    JSON,
+    YAML,
+}
+
+#[derive(Debug)]
 pub enum Command {
     Init,
     Run {
@@ -38,14 +43,13 @@ pub enum Command {
     Describe {
         config: crate::config::Config,
         chains: Vec<String>,
+        format: Format,
     },
 }
 
-/// The type that parses the arguments to the program.
 pub struct ClapArgumentLoader {}
 
 impl ClapArgumentLoader {
-    /// Parsing the program arguments with the `clap` trait.
     pub fn load() -> Result<CallArgs, Box<dyn Error>> {
         let command = clap::App::new("neomake")
             .version(env!("CARGO_PKG_VERSION"))
@@ -119,6 +123,17 @@ impl ClapArgumentLoader {
                             .multiple_occurrences(true)
                             .required(true)
                             .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::new("output")
+                            .short('o')
+                            .long("output")
+                            .value_name("OUTPUT")
+                            .help("The output format.")
+                            .default_value("json")
+                            .possible_values(&["json", "yaml"])
+                            .required(false)
+                            .takes_value(true),
                     ),
             )
             .get_matches();
@@ -126,7 +141,6 @@ impl ClapArgumentLoader {
         fn parse_config_and_chains(
             x: &clap::ArgMatches,
         ) -> Result<(crate::config::Config, Vec<String>), Box<dyn Error>> {
-            // parse config
             let config_content = if x.is_present("config") {
                 let config_param = x.value_of("config").unwrap();
                 std::fs::read_to_string(config_param)?
@@ -151,7 +165,6 @@ impl ClapArgumentLoader {
         let cmd = if let Some(..) = command.subcommand_matches("init") {
             Command::Init
         } else if let Some(x) = command.subcommand_matches("run") {
-            // parse args
             let mut args_map: HashMap<String, String> = HashMap::new();
             if let Some(args) = x.values_of("arg") {
                 for v_arg in args {
@@ -167,9 +180,21 @@ impl ClapArgumentLoader {
             }
         } else if let Some(x) = command.subcommand_matches("describe") {
             let args_cc = parse_config_and_chains(x)?;
+
+            let format = if let Some(f) = x.value_of("output") {
+                match f {
+                    | "json" => Format::JSON,
+                    | "yaml" => Format::YAML,
+                    | _ => Err(Box::new(crate::error::ArgumentError::new("unkown output format")))?,
+                }
+            } else {
+                Format::JSON
+            };
+
             Command::Describe {
                 config: args_cc.0,
                 chains: args_cc.1,
+                format,
             }
         } else {
             return Err(Box::new(crate::error::UnknownCommandError::new("unknown command")));

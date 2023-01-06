@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match args.command {
         | args::Command::Init => init().await,
         | args::Command::Run { config, chains, args } => run(config, chains, args).await,
-        | args::Command::Describe { config, chains } => describe(config, chains).await,
+        | args::Command::Describe { config, chains, format } => describe(config, chains, format).await,
     }
 }
 
@@ -132,17 +132,20 @@ async fn run(
         for task in &chain.tasks {
             let rendered_cmd = hb.render_template(&task.script, &values_json)?;
 
+            // respect workdir from most inner to outer scope
             let workdir = if let Some(workdir) = &task.workdir {
                 Some(workdir)
             } else if let Some(workdir) = &mat.workdir {
+                Some(workdir)
+            } else if let Some(workdir) = &chain.workdir {
                 Some(workdir)
             } else {
                 None
             };
 
             let mut envs_merged = HashMap::<&String, &String>::new();
-            for source in vec![&conf.env, &chain.env, &mat.env, &task.env] {
-                if let Some(m) = source {
+            for env in vec![&conf.env, &chain.env, &mat.env, &task.env] {
+                if let Some(m) = env {
                     envs_merged.extend(m);
                 }
             }
@@ -198,20 +201,28 @@ async fn run(
     Ok(())
 }
 
-async fn describe(config: crate::config::Config, chains: Vec<String>) -> Result<(), Box<dyn Error>> {
+async fn describe(
+    config: crate::config::Config,
+    chains: Vec<String>,
+    format: args::Format,
+) -> Result<(), Box<dyn Error>> {
     let structure = determine_order(&config.chains, &chains)?;
 
     #[derive(Debug, serde::Serialize)]
     struct Output {
-        stages: Vec<HashSet<String>>,
+        stages: Vec<Vec<String>>,
     }
 
     let mut info = Output { stages: Vec::new() };
     for s in structure {
         info.stages
-            .push(s.iter().map(|s| s.to_owned()).into_iter().collect::<HashSet<_>>());
+            .push(s.iter().map(|s| s.to_owned()).into_iter().collect::<Vec<_>>());
     }
-    println!("{}", serde_json::ser::to_string(&info)?);
+
+    match format {
+        | args::Format::JSON => println!("{}", serde_json::to_string(&info)?),
+        | args::Format::YAML => println!("{}", serde_yaml::to_string(&info)?),
+    };
 
     Ok(())
 }

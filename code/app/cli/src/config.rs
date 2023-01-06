@@ -12,6 +12,7 @@ pub struct Config {
 #[serde(rename_all = "snake_case")]
 pub struct Chain {
     pub env: Option<HashMap<String, String>>,
+    pub workdir: Option<String>,
     pub pre: Option<Vec<String>>,
     pub matrix: Option<Vec<MatrixEntry>>,
     pub tasks: Vec<Task>,
