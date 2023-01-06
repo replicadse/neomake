@@ -156,6 +156,24 @@ impl ClapArgumentLoader {
                     "chain was not specified",
                 )))?;
 
+            fn check_version(config: &str) -> Result<(), Box<dyn Error>> {
+                #[derive(Debug, serde::Deserialize)]
+                struct WithVersion {
+                    version: String,
+                }
+                let v: WithVersion = serde_yaml::from_str(config)?;
+
+                if v.version != "0.2" {
+                    Err(Box::new(crate::error::VersionCompatibilityError::new(&format!(
+                        "config version {} is incompatible with this CLI version",
+                        v.version
+                    ))))
+                } else {
+                    Ok(())
+                }
+            }
+            check_version(&config_content)?;
+
             Ok((
                 serde_yaml::from_str(&config_content)?,
                 Vec::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())),

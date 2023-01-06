@@ -30,3 +30,4 @@ make_error!(UnknownCommandError);
 make_error!(ExperimentalCommandError);
 make_error!(MissingArgumentError);
 make_error!(ArgumentError);
+make_error!(VersionCompatibilityError);
