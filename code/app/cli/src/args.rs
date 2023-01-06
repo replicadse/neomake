@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     error::Error,
+    iter::FromIterator,
     result::Result,
 };
 
@@ -31,12 +32,12 @@ pub enum Command {
     Init,
     Run {
         config: crate::config::Config,
-        chain: String,
+        chains: Vec<String>,
         args: HashMap<String, String>,
     },
     Describe {
         config: crate::config::Config,
-        chain: String,
+        chains: Vec<String>,
     },
 }
 
@@ -80,7 +81,7 @@ impl ClapArgumentLoader {
                             .long("chain")
                             .value_name("CHAIN")
                             .help("Which chain to execute.")
-                            .multiple_values(false)
+                            .multiple_occurrences(true)
                             .required(true)
                             .takes_value(true),
                     )
@@ -115,14 +116,16 @@ impl ClapArgumentLoader {
                             .long("chain")
                             .value_name("CHAIN")
                             .help("Which chain to execute.")
-                            .multiple_values(false)
+                            .multiple_occurrences(true)
                             .required(true)
                             .takes_value(true),
                     ),
             )
             .get_matches();
 
-        fn parse_config_and_chain(x: &clap::ArgMatches) -> Result<(crate::config::Config, String), Box<dyn Error>> {
+        fn parse_config_and_chains(
+            x: &clap::ArgMatches,
+        ) -> Result<(crate::config::Config, Vec<String>), Box<dyn Error>> {
             // parse config
             let config_content = if x.is_present("config") {
                 let config_param = x.value_of("config").unwrap();
@@ -133,13 +136,16 @@ impl ClapArgumentLoader {
                 )));
             };
 
-            let chain = x
-                .value_of("chain")
+            let chains = x
+                .values_of("chain")
                 .ok_or(Box::new(crate::error::MissingArgumentError::new(
                     "chain was not specified",
                 )))?;
 
-            Ok((serde_yaml::from_str(&config_content)?, chain.to_owned()))
+            Ok((
+                serde_yaml::from_str(&config_content)?,
+                Vec::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())),
+            ))
         }
 
         let cmd = if let Some(..) = command.subcommand_matches("init") {
@@ -153,17 +159,17 @@ impl ClapArgumentLoader {
                     args_map.insert(spl[0].to_owned(), spl[1].to_owned());
                 }
             }
-            let args_cc = parse_config_and_chain(x)?;
+            let args_cc = parse_config_and_chains(x)?;
             Command::Run {
                 config: args_cc.0,
-                chain: args_cc.1,
+                chains: args_cc.1,
                 args: args_map,
             }
         } else if let Some(x) = command.subcommand_matches("describe") {
-            let args_cc = parse_config_and_chain(x)?;
+            let args_cc = parse_config_and_chains(x)?;
             Command::Describe {
                 config: args_cc.0,
-                chain: args_cc.1,
+                chains: args_cc.1,
             }
         } else {
             return Err(Box::new(crate::error::UnknownCommandError::new("unknown command")));

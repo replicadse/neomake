@@ -27,8 +27,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = args::ClapArgumentLoader::load()?;
     match args.command {
         | args::Command::Init => init().await,
-        | args::Command::Run { config, chain, args } => run(config, chain, args).await,
-        | args::Command::Describe { config, chain } => describe(config, chain).await,
+        | args::Command::Run { config, chains, args } => run(config, chains, args).await,
+        | args::Command::Describe { config, chains } => describe(config, chains).await,
     }
 }
 
@@ -39,13 +39,13 @@ async fn init() -> Result<(), Box<dyn Error>> {
 
 fn determine_order(
     chains: &HashMap<String, config::Chain>,
-    entry: &str,
+    entries: &Vec<String>,
 ) -> Result<Vec<HashSet<String>>, Box<dyn Error>> {
     let mut map = HashMap::<String, Vec<String>>::new();
 
     let mut seen = HashSet::<String>::new();
     let mut pending = VecDeque::<String>::new();
-    pending.push_back(entry.to_owned());
+    pending.extend(entries.to_owned());
 
     while let Some(next) = pending.pop_back() {
         if seen.contains(&next) {
@@ -87,11 +87,10 @@ fn determine_order(
     Ok(result)
 }
 
-async fn exec_chain(
-    conf: &config::Config,
-    chain: String,
-    args: &HashMap<String, String>,
-    output: Arc<Mutex<output::Controller>>,
+async fn run(
+    conf: crate::config::Config,
+    chains: Vec<String>,
+    args: HashMap<String, String>,
 ) -> Result<(), Box<dyn Error>> {
     fn recursive_add(namespace: &mut std::collections::VecDeque<String>, parent: &mut serde_json::Value, value: &str) {
         let current_namespace = namespace.pop_front().unwrap();
@@ -131,54 +130,53 @@ async fn exec_chain(
         }
 
         for task in &chain.tasks {
-            for cmd in &task.run {
-                let rendered_cmd = hb.render_template(cmd, &values_json)?;
+            let rendered_cmd = hb.render_template(&task.script, &values_json)?;
 
-                let workdir = if let Some(workdir) = &task.workdir {
-                    Some(workdir)
-                } else if let Some(workdir) = &mat.workdir {
-                    Some(workdir)
-                } else {
-                    None
-                };
+            let workdir = if let Some(workdir) = &task.workdir {
+                Some(workdir)
+            } else if let Some(workdir) = &mat.workdir {
+                Some(workdir)
+            } else {
+                None
+            };
 
-                let mut envs_merged = HashMap::<&String, &String>::new();
-                for source in vec![&conf.env, &chain.env, &mat.env, &task.env] {
-                    if let Some(m) = source {
-                        envs_merged.extend(m);
-                    }
+            let mut envs_merged = HashMap::<&String, &String>::new();
+            for source in vec![&conf.env, &chain.env, &mat.env, &task.env] {
+                if let Some(m) = source {
+                    envs_merged.extend(m);
                 }
+            }
 
-                let mut cmd_proc = std::process::Command::new("sh");
-                cmd_proc.envs(envs_merged);
-                if let Some(w) = workdir {
-                    cmd_proc.current_dir(w);
-                }
-                cmd_proc.arg("-c");
-                cmd_proc.arg(&rendered_cmd);
-                let closure_controller = output.clone();
-                let cmd_exit_code = InteractiveProcess::new(cmd_proc, move |l| match l {
-                    | Ok(v) => {
-                        let mut lock = closure_controller.lock().unwrap();
-                        lock.append(v);
-                        lock.draw().unwrap();
-                    },
-                    | Err(..) => {},
-                })?
-                .wait()?
-                .code();
-                if let Some(code) = cmd_exit_code {
-                    if code != 0 {
-                        let err_msg = format!("command \"{}\" failed with code {}", &rendered_cmd, code,);
-                        return Err(Box::new(crate::error::ChildProcessError::new(&err_msg)));
-                    }
+            let mut cmd_proc = std::process::Command::new("sh");
+            cmd_proc.envs(envs_merged);
+            if let Some(w) = workdir {
+                cmd_proc.current_dir(w);
+            }
+            cmd_proc.arg("-c");
+            cmd_proc.arg(&rendered_cmd);
+            let closure_controller = output.clone();
+            let cmd_exit_code = InteractiveProcess::new(cmd_proc, move |l| match l {
+                | Ok(v) => {
+                    let mut lock = closure_controller.lock().unwrap();
+                    lock.append(v);
+                    lock.draw().unwrap();
+                },
+                | Err(..) => {},
+            })?
+            .wait()?
+            .code();
+            if let Some(code) = cmd_exit_code {
+                if code != 0 {
+                    let err_msg = format!("command \"{}\" failed with code {}", &rendered_cmd, code,);
+                    return Err(Box::new(crate::error::ChildProcessError::new(&err_msg)));
                 }
             }
         }
         Ok(())
     }
 
-    for stage_chains in determine_order(&conf.chains, &chain)? {
+    let output = Arc::new(Mutex::new(output::Controller::new(10)));
+    for stage_chains in determine_order(&conf.chains, &chains)? {
         for chain_name in stage_chains {
             let chain = &conf.chains[&chain_name];
 
@@ -200,18 +198,20 @@ async fn exec_chain(
     Ok(())
 }
 
-async fn run(
-    config: crate::config::Config,
-    chain: String,
-    args: HashMap<String, String>,
-) -> Result<(), Box<dyn Error>> {
-    let contr = Arc::new(Mutex::new(output::Controller::new(10)));
-    exec_chain(&config, chain, &args, contr.clone()).await?;
-    Ok(())
-}
+async fn describe(config: crate::config::Config, chains: Vec<String>) -> Result<(), Box<dyn Error>> {
+    let structure = determine_order(&config.chains, &chains)?;
 
-async fn describe(config: crate::config::Config, chain: String) -> Result<(), Box<dyn Error>> {
-    let structure = determine_order(&config.chains, &chain)?;
-    println!("{:?}", structure);
+    #[derive(Debug, serde::Serialize)]
+    struct Output {
+        stages: Vec<HashSet<String>>,
+    }
+
+    let mut info = Output { stages: Vec::new() };
+    for s in structure {
+        info.stages
+            .push(s.iter().map(|s| s.to_owned()).into_iter().collect::<HashSet<_>>());
+    }
+    println!("{}", serde_json::ser::to_string(&info)?);
+
     Ok(())
 }

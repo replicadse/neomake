@@ -18,60 +18,54 @@ chains:
       - env:
           VALUE: a 2
     tasks:
-      - run:
-          - printf "$VALUE"
+      - script: echo "$VALUE"
   b:
     pre:
       - a
     tasks:
-      - run:
-          - printf "b"
+      - script: echo "b"
   c:
     pre:
       - b
     tasks:
-      - run:
-          - printf "c"
+      - script: echo "c"
 
   minimal:
     tasks:
-      - run:
-          - printf "minimal"
+      - script: echo "minimal"
 
-  test:
+  graph:
     pre:
       - minimal
       - a
       - b
+    tasks: []
+
+  test:
     matrix:
       - env:
           OVERRIDE_ENV_VAR_0: new e0
     tasks:
       - env:
           OVERRIDE_ENV_VAR_1: new e1
-        run:
-          - printf "$DEFAULT_ENV_VAR"
-          - sleep 1
-          - printf "$OVERRIDE_ENV_VAR_0"
-          - sleep 1
-          - printf "$OVERRIDE_ENV_VAR_1"
-          - sleep 1
-          - echo "A"
-          - sleep 1
-          - echo "B"
-          - sleep 1
-          - echo "C"
-          - sleep 1
-          - echo "D"
-          - sleep 1
-          - |
-            echo "+ some"
-            sleep 1
-            echo "+ multiline"
-            sleep 1
-            echo "+ command"
-            sleep 1
-          - printf "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
-          - sleep 1
-          - unknown-command
-          - printf "too far!"
+        script: |
+          set -e
+
+          echo "$DEFAULT_ENV_VAR"
+          sleep 1
+          echo "$OVERRIDE_ENV_VAR_0"
+          sleep 1
+          echo "$OVERRIDE_ENV_VAR_1"
+          sleep 1
+          echo "A"
+          sleep 1
+          echo "B"
+          sleep 1
+          echo "C"
+          sleep 1
+          echo "D"
+          sleep 1
+          echo "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
+          sleep 1
+          unknown-command
+          echo "too far!"

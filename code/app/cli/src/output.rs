@@ -20,7 +20,7 @@ impl Controller {
         Self {
             max_lines: max,
             drawn_lines: 0,
-            lines: Vec::<String>::new(),
+            lines: Vec::<String>::with_capacity(max + 1),
         }
     }
 
