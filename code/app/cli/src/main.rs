@@ -150,12 +150,23 @@ async fn run(
                 }
             }
 
-            let mut cmd_proc = std::process::Command::new("sh");
+            let shell = if let Some(shell) = &task.shell {
+                shell.to_owned()
+            } else if let Some(shell) = &chain.shell {
+                shell.to_owned()
+            } else {
+                config::Shell {
+                    program: "sh".to_owned(),
+                    args: vec!["-c".to_owned()],
+                }
+            };
+
+            let mut cmd_proc = std::process::Command::new(&shell.program);
+            cmd_proc.args(shell.args);
             cmd_proc.envs(envs_merged);
             if let Some(w) = workdir {
                 cmd_proc.current_dir(w);
             }
-            cmd_proc.arg("-c");
             cmd_proc.arg(&rendered_cmd);
             let closure_controller = output.clone();
             let cmd_exit_code = InteractiveProcess::new(cmd_proc, move |l| match l {

@@ -16,6 +16,14 @@ pub struct Chain {
     pub pre: Option<Vec<String>>,
     pub matrix: Option<Vec<MatrixEntry>>,
     pub tasks: Vec<Task>,
+    pub shell: Option<Shell>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct Shell {
+    pub program: String,
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -38,6 +46,7 @@ impl Default for MatrixEntry {
 pub struct Task {
     pub workdir: Option<String>,
     pub env: Option<HashMap<String, String>>,
+    pub shell: Option<Shell>,
     pub script: String,
 }
 

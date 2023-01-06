@@ -9,6 +9,19 @@ env:
   - cargo build $CARGO_ARGS
 
 chains:
+  python:
+    shell:
+      program: python
+      args:
+        - -c
+    tasks:
+      - script: print('yada')
+      - shell:
+          program: sh
+          args:
+            - -c
+        script: "printf test"
+
   a:
     matrix:
       - env:
