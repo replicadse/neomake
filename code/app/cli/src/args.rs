@@ -39,6 +39,7 @@ pub enum Command {
         config: crate::config::Config,
         chains: Vec<String>,
         args: HashMap<String, String>,
+        shell: String,
     },
     Describe {
         config: crate::config::Config,
@@ -96,6 +97,19 @@ impl ClapArgumentLoader {
                             .value_name("ARG")
                             .help("An argument to the chain.")
                             .multiple_values(true)
+                            .required(false)
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::new("shell")
+                            .short('s')
+                            .long("shell")
+                            .value_name("SHELL")
+                            .help(
+                                "The program / shell that is used for the script invocations. The command is passed \
+                                 after the \"-c\" flag.",
+                            )
+                            .default_value("sh")
                             .required(false)
                             .takes_value(true),
                     ),
@@ -191,10 +205,15 @@ impl ClapArgumentLoader {
                 }
             }
             let args_cc = parse_config_and_chains(x)?;
+            let shell = x
+                .value_of("shell")
+                .ok_or(Box::new(crate::error::ArgumentError::new("shell not specified")))?
+                .to_owned();
             Command::Run {
                 config: args_cc.0,
                 chains: args_cc.1,
                 args: args_map,
+                shell,
             }
         } else if let Some(x) = command.subcommand_matches("describe") {
             let args_cc = parse_config_and_chains(x)?;

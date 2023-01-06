@@ -9,6 +9,10 @@ env:
   - cargo build $CARGO_ARGS
 
 chains:
+  python: # use with "-s python"
+    tasks:
+      - script: print('yada')
+
   a:
     matrix:
       - env:

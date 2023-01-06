@@ -27,7 +27,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = args::ClapArgumentLoader::load()?;
     match args.command {
         | args::Command::Init => init().await,
-        | args::Command::Run { config, chains, args } => run(config, chains, args).await,
+        | args::Command::Run {
+            config,
+            chains,
+            args,
+            shell,
+        } => run(config, chains, args, shell).await,
         | args::Command::Describe { config, chains, format } => describe(config, chains, format).await,
     }
 }
@@ -91,6 +96,7 @@ async fn run(
     conf: crate::config::Config,
     chains: Vec<String>,
     args: HashMap<String, String>,
+    shell: String,
 ) -> Result<(), Box<dyn Error>> {
     fn recursive_add(namespace: &mut std::collections::VecDeque<String>, parent: &mut serde_json::Value, value: &str) {
         let current_namespace = namespace.pop_front().unwrap();
@@ -118,6 +124,7 @@ async fn run(
         chain: &config::Chain,
         mat: &config::MatrixEntry,
         args: &HashMap<String, String>,
+        shell: &str,
         output: Arc<Mutex<output::Controller>>,
     ) -> Result<(), Box<dyn Error>> {
         let mut hb = handlebars::Handlebars::new();
@@ -150,7 +157,7 @@ async fn run(
                 }
             }
 
-            let mut cmd_proc = std::process::Command::new("sh");
+            let mut cmd_proc = std::process::Command::new(shell);
             cmd_proc.envs(envs_merged);
             if let Some(w) = workdir {
                 cmd_proc.current_dir(w);
@@ -185,7 +192,7 @@ async fn run(
 
             if let Some(matrix) = &chain.matrix {
                 for mat in matrix {
-                    execute_matrix_entry(&conf, chain, mat, &args, output.clone())?;
+                    execute_matrix_entry(&conf, chain, mat, &args, &shell, output.clone())?;
                 }
             } else {
                 execute_matrix_entry(
@@ -193,6 +200,7 @@ async fn run(
                     chain,
                     &config::MatrixEntry { ..Default::default() },
                     &args,
+                    &shell,
                     output.clone(),
                 )?;
             }
