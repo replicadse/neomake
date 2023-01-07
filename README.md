@@ -118,8 +118,46 @@ chains:
           sleep 1
           unknown-command
           echo "too far!"
+```
+
+## Graph execution
+
+Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduped so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.\
+Let's assume the following graph of task chains and their dependencies:
+
+`neomake -e ls`
 
 ```
+---
+chains:
+  - name: A
+  - name: B
+  - name: C
+    pre:
+      - A
+  - name: D
+    pre:
+      - B
+  - name: E
+    pre:
+      - A
+      - D
+```
+
+In words, `A` and `B` are nodes without any prerequisites whereas `C` depends on `A` and `D` depends on `B`. Notably, `E` depends on both `A` and `D`. This means that `E` also transiently depends on any dependencies of `A` (`{}`) and `D` (`{B}`).
+
+A CLI call such as `neomake -e describe -cC -cE` would render the following task executions.
+
+```
+---
+stages:
+  - - A
+    - B
+  - - D
+  - - E
+```
+
+Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. `neomake` is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.
 
 ## Why
 

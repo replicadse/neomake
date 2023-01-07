@@ -15,13 +15,18 @@ chains:
       program: bash
       args:
         - -c
+    matrix:
+      - env:
+          PRINT_VAL: value 0
+      - env:
+          PRINT_VAL: value 1
     tasks:
       - shell:
           program: python
           args:
             - -c
         script: print('yada')
-      - script: "printf test"
+      - script: printf "$PRINT_VAL"
       - script: *anchor
 
   a:
