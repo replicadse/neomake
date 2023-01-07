@@ -5,22 +5,23 @@ env:
   OVERRIDE_ENV_VAR_0: old e0
   OVERRIDE_ENV_VAR_1: old e1
 
-.cargo-build: &cargo-build
-  - cargo build $CARGO_ARGS
+.anchor: &anchor |
+  printf "test anchor"
 
 chains:
   python:
     shell:
-      program: python
+      program: bash
       args:
         - -c
     tasks:
-      - script: print('yada')
       - shell:
-          program: sh
+          program: python
           args:
             - -c
-        script: "printf test"
+        script: print('yada')
+      - script: "printf test"
+      - script: *anchor
 
   a:
     matrix:
