@@ -10,6 +10,7 @@ env:
 
 chains:
   python:
+    description: This is an example of using multiple execution environments (shell and python).
     shell:
       program: bash
       args:

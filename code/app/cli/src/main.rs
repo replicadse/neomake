@@ -222,16 +222,20 @@ async fn list(config: crate::config::Config, format: args::Format) -> Result<(),
     struct OutputChain {
         name: String,
         #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pre: Option<Vec<String>>,
     }
 
     let mut info = Output {
         chains: Vec::from_iter(config.chains.iter().map(|c| OutputChain {
             name: c.0.to_owned(),
+            description: c.1.description.clone(),
             pre: c.1.pre.clone(),
         })),
     };
     info.chains.sort_by(|a, b| a.name.cmp(&b.name));
+
     match format {
         | args::Format::YAML => println!("{}", serde_yaml::to_string(&info)?),
         | args::Format::JSON => println!("{}", serde_json::to_string(&info)?),
