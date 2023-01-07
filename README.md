@@ -2,24 +2,34 @@
 
 `neomake` is a fully open source task runner CLI utility that acts as a modern alternative to known utilities.
 
-## State
+## Project state
 
-`neomake` is currently a pre-release and to be considered as **unstable**.
+`neomake` is currently a pre-release and to be considered as **unstable**. It is actively maintained and used in production.
 
 ## Features
 
 - **Task chains**\
   Execute many tasks in sequence, easily re-use single tasks using YAML anchors.
-- **Invocation matrix**\
-  Invoke task chains many times by specifying multiple entries in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's matrix builds.
+- **Task chain graphs**\
+  Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use `neomake -e describe -c ...` to view the task chains and the stages (in order) they are executed in.
+- **Invocation matrices**\
+  Invoke task chains many times by specifying multiple entries in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's parallel matrix builds.
 - **YAML**\
-  No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for features such as YAML anchors (and everything in the YAML 1.2 standard).
-  
-## How to use
+  No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for handy features such as YAML anchors (and everything in the YAML 1.2 standard).
+- **Customizable environment**\
+  You can customize which shell or program (such as python) `neomake` uses as interpreter for the command. You can also specify arguments that are provided per invocation via the command line, working directories and environment variables on multiple different levels. Generally, the most inner scope will extend or replace the outer scope.
 
-1. `cargo install neomake`
-2. `neomake init`
-3. `neomake run -c test -a args.test="some argument"`
+## Installation
+
+`neomake` is distributed through `cargo`.
+
+1) `cargo install neomake`
+
+## Usage
+
+- `neomake init`
+- `neomake run -c test -c othertest -a args.test="some argument"`
+- `neomake -e describe -c test -c othertest -o yaml`
 
 ## Why
 
