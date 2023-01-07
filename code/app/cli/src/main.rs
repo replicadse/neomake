@@ -189,7 +189,7 @@ async fn run(
         Ok(())
     }
 
-    let output = Arc::new(Mutex::new(output::Controller::new(10)));
+    let output = Arc::new(Mutex::new(output::Controller::new("==> ".to_owned(), 10)));
     for stage_chains in determine_order(&conf.chains, &chains)? {
         for chain_name in stage_chains {
             let chain = &conf.chains[&chain_name];

@@ -11,13 +11,15 @@ use crossterm::{
 };
 
 pub(crate) struct Controller {
+    prefix: String,
     max_lines: usize,
     lines: Vec<String>,
     drawn_lines: usize,
 }
 impl Controller {
-    pub fn new(max: usize) -> Self {
+    pub fn new(prefix: String, max: usize) -> Self {
         Self {
+            prefix,
             max_lines: max,
             drawn_lines: 0,
             lines: Vec::<String>::with_capacity(max + 1),
@@ -43,7 +45,7 @@ impl Controller {
         stdout.queue(terminal::Clear(terminal::ClearType::FromCursorDown))?;
 
         for l in &self.lines {
-            stdout.queue(Print(format!("{}\n", l))).unwrap();
+            stdout.queue(Print(format!("{}{}\n", &self.prefix, l))).unwrap();
         }
         stdout.flush()?;
         self.drawn_lines = self.lines.len();
