@@ -28,6 +28,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match args.command {
         | args::Command::Init => init().await,
         | args::Command::Run { config, chains, args } => run(config, chains, args).await,
+        | args::Command::List { config, format } => list(config, format).await,
         | args::Command::Describe { config, chains, format } => describe(config, chains, format).await,
     }
 }
@@ -209,6 +210,32 @@ async fn run(
             }
         }
     }
+    Ok(())
+}
+
+async fn list(config: crate::config::Config, format: args::Format) -> Result<(), Box<dyn Error>> {
+    #[derive(Debug, serde::Serialize)]
+    struct Output {
+        chains: Vec<OutputChain>,
+    }
+    #[derive(Debug, serde::Serialize)]
+    struct OutputChain {
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pre: Option<Vec<String>>,
+    }
+
+    let info = Output {
+        chains: Vec::from_iter(config.chains.iter().map(|c| OutputChain {
+            name: c.0.to_owned(),
+            pre: c.1.pre.clone(),
+        })),
+    };
+    match format {
+        | args::Format::YAML => println!("{}", serde_yaml::to_string(&info)?),
+        | args::Format::JSON => println!("{}", serde_json::to_string(&info)?),
+    };
+
     Ok(())
 }
 

@@ -21,6 +21,9 @@ impl CallArgs {
             | Command::Describe { .. } => Err(Box::new(crate::error::ExperimentalCommandError::new(
                 "command is experimental",
             ))),
+            | Command::List { .. } => Err(Box::new(crate::error::ExperimentalCommandError::new(
+                "command is experimental",
+            ))),
             | _ => Ok(()),
         }
     }
@@ -39,6 +42,10 @@ pub enum Command {
         config: crate::config::Config,
         chains: Vec<String>,
         args: HashMap<String, String>,
+    },
+    List {
+        config: crate::config::Config,
+        format: Format,
     },
     Describe {
         config: crate::config::Config,
@@ -64,10 +71,11 @@ impl ClapArgumentLoader {
                     .required(false)
                     .takes_value(false),
             )
-            .subcommand(clap::App::new("init").about(""))
+            .subcommand(clap::App::new("init").about("Initializes a new default configuration in the current folder."))
             .subcommand(
                 clap::App::new("run")
-                    .about("")
+                    .about("Runs task chains.")
+                    .visible_aliases(&["r", "exec", "x"])
                     .arg(
                         clap::Arg::new("config")
                             .short('f')
@@ -102,7 +110,8 @@ impl ClapArgumentLoader {
             )
             .subcommand(
                 clap::App::new("describe")
-                    .about("")
+                    .about("Describes the execution graph for a given task chain configuration.")
+                    .visible_aliases(&["d", "desc"])
                     .arg(
                         clap::Arg::new("config")
                             .short('f')
@@ -130,17 +139,42 @@ impl ClapArgumentLoader {
                             .long("output")
                             .value_name("OUTPUT")
                             .help("The output format.")
-                            .default_value("json")
-                            .possible_values(&["json", "yaml"])
+                            .default_value("yaml")
+                            .possible_values(&["yaml", "json"])
+                            .required(false)
+                            .takes_value(true),
+                    ),
+            )
+            .subcommand(
+                clap::App::new("list")
+                    .about("Lists all available task chains.")
+                    .visible_aliases(&["ls"])
+                    .arg(
+                        clap::Arg::new("config")
+                            .short('f')
+                            .long("config")
+                            .value_name("CONFIG")
+                            .help("The configuration file to use.")
+                            .default_value("./.neomake.yaml")
+                            .multiple_values(false)
+                            .required(false)
+                            .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::new("output")
+                            .short('o')
+                            .long("output")
+                            .value_name("OUTPUT")
+                            .help("The output format.")
+                            .default_value("yaml")
+                            .possible_values(&["yaml", "json"])
                             .required(false)
                             .takes_value(true),
                     ),
             )
             .get_matches();
 
-        fn parse_config_and_chains(
-            x: &clap::ArgMatches,
-        ) -> Result<(crate::config::Config, Vec<String>), Box<dyn Error>> {
+        fn parse_config(x: &clap::ArgMatches) -> Result<crate::config::Config, Box<dyn Error>> {
             let config_content = if x.is_present("config") {
                 let config_param = x.value_of("config").unwrap();
                 std::fs::read_to_string(config_param)?
@@ -149,12 +183,6 @@ impl ClapArgumentLoader {
                     "configuration has not been specified",
                 )));
             };
-
-            let chains = x
-                .values_of("chain")
-                .ok_or(Box::new(crate::error::MissingArgumentError::new(
-                    "chain was not specified",
-                )))?;
 
             fn check_version(config: &str) -> Result<(), Box<dyn Error>> {
                 #[derive(Debug, serde::Deserialize)]
@@ -174,10 +202,17 @@ impl ClapArgumentLoader {
             }
             check_version(&config_content)?;
 
-            Ok((
-                serde_yaml::from_str(&config_content)?,
-                Vec::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())),
-            ))
+            Ok(serde_yaml::from_str(&config_content)?)
+        }
+
+        fn parse_chains(x: &clap::ArgMatches) -> Result<Vec<String>, Box<dyn Error>> {
+            let chains = x
+                .values_of("chain")
+                .ok_or(Box::new(crate::error::MissingArgumentError::new(
+                    "chain was not specified",
+                )))?;
+
+            Ok(Vec::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())))
         }
 
         let cmd = if let Some(..) = command.subcommand_matches("init") {
@@ -190,19 +225,31 @@ impl ClapArgumentLoader {
                     args_map.insert(spl[0].to_owned(), spl[1].to_owned());
                 }
             }
-            let args_cc = parse_config_and_chains(x)?;
             Command::Run {
-                config: args_cc.0,
-                chains: args_cc.1,
+                config: parse_config(x)?,
+                chains: parse_chains(x)?,
                 args: args_map,
             }
-        } else if let Some(x) = command.subcommand_matches("describe") {
-            let args_cc = parse_config_and_chains(x)?;
-
+        } else if let Some(x) = command.subcommand_matches("list") {
             let format = if let Some(f) = x.value_of("output") {
                 match f {
-                    | "json" => Format::JSON,
                     | "yaml" => Format::YAML,
+                    | "json" => Format::JSON,
+                    | _ => Err(Box::new(crate::error::ArgumentError::new("unkown output format")))?,
+                }
+            } else {
+                Format::JSON
+            };
+
+            Command::List {
+                config: parse_config(x)?,
+                format,
+            }
+        } else if let Some(x) = command.subcommand_matches("describe") {
+            let format = if let Some(f) = x.value_of("output") {
+                match f {
+                    | "yaml" => Format::YAML,
+                    | "json" => Format::JSON,
                     | _ => Err(Box::new(crate::error::ArgumentError::new("unkown output format")))?,
                 }
             } else {
@@ -210,8 +257,8 @@ impl ClapArgumentLoader {
             };
 
             Command::Describe {
-                config: args_cc.0,
-                chains: args_cc.1,
+                config: parse_config(x)?,
+                chains: parse_chains(x)?,
                 format,
             }
         } else {
