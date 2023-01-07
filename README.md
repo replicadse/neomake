@@ -31,6 +31,96 @@
 - `neomake run -c test -c othertest -a args.test="some argument"`
 - `neomake -e describe -c test -c othertest -o yaml`
 
+## Example configuration
+
+```yaml
+version: 0.2
+
+env:
+  DEFAULT_ENV_VAR: default var
+  OVERRIDE_ENV_VAR_0: old e0
+  OVERRIDE_ENV_VAR_1: old e1
+
+.anchor: &anchor |
+  printf "test anchor"
+
+chains:
+  python:
+    description: This is an example of using multiple execution environments (shell and python).
+    shell:
+      program: bash
+      args:
+        - -c
+    tasks:
+      - shell:
+          program: python
+          args:
+            - -c
+        script: print('yada')
+      - script: "printf test"
+      - script: *anchor
+
+  a:
+    matrix:
+      - env:
+          VALUE: a 0
+      - env:
+          VALUE: a 1
+    tasks:
+      - script: echo "$VALUE"
+  b:
+    pre:
+      - a
+    tasks:
+      - script: echo "b"
+  c:
+    pre:
+      - b
+    tasks:
+      - script: echo "c"
+
+  minimal:
+    tasks:
+      - script: echo "minimal"
+
+  graph:
+    pre:
+      - minimal
+      - a
+      - b
+    tasks: []
+
+  test:
+    matrix:
+      - env:
+          OVERRIDE_ENV_VAR_0: new e0
+    tasks:
+      - env:
+          OVERRIDE_ENV_VAR_1: new e1
+        script: |
+          set -e
+
+          echo "$DEFAULT_ENV_VAR"
+          sleep 1
+          echo "$OVERRIDE_ENV_VAR_0"
+          sleep 1
+          echo "$OVERRIDE_ENV_VAR_1"
+          sleep 1
+          echo "A"
+          sleep 1
+          echo "B"
+          sleep 1
+          echo "C"
+          sleep 1
+          echo "D"
+          sleep 1
+          echo "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
+          sleep 1
+          unknown-command
+          echo "too far!"
+
+```
+
 ## Why
 
 Why would someone build a task runner if there's many alternatives out there? A few of the most well known task running utilities / frameworks are (non exhaustive):
