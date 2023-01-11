@@ -1,5 +1,8 @@
 use std::{
-    collections::HashMap,
+    collections::{
+        HashMap,
+        HashSet,
+    },
     error::Error,
     iter::FromIterator,
     result::Result,
@@ -39,17 +42,17 @@ pub enum Format {
 pub enum Command {
     Init,
     Run {
-        config: crate::config::Config,
-        chains: Vec<String>,
+        config: String,
+        chains: HashSet<String>,
         args: HashMap<String, String>,
     },
     List {
-        config: crate::config::Config,
+        config: String,
         format: Format,
     },
     Describe {
-        config: crate::config::Config,
-        chains: Vec<String>,
+        config: String,
+        chains: HashSet<String>,
         format: Format,
     },
 }
@@ -174,45 +177,14 @@ impl ClapArgumentLoader {
             )
             .get_matches();
 
-        fn parse_config(x: &clap::ArgMatches) -> Result<crate::config::Config, Box<dyn Error>> {
-            let config_content = if x.is_present("config") {
-                let config_param = x.value_of("config").unwrap();
-                std::fs::read_to_string(config_param)?
-            } else {
-                return Err(Box::new(crate::error::MissingArgumentError::new(
-                    "configuration has not been specified",
-                )));
-            };
-
-            fn check_version(config: &str) -> Result<(), Box<dyn Error>> {
-                #[derive(Debug, serde::Deserialize)]
-                struct WithVersion {
-                    version: String,
-                }
-                let v: WithVersion = serde_yaml::from_str(config)?;
-
-                if v.version != "0.2" {
-                    Err(Box::new(crate::error::VersionCompatibilityError::new(&format!(
-                        "config version {} is incompatible with this CLI version",
-                        v.version
-                    ))))
-                } else {
-                    Ok(())
-                }
-            }
-            check_version(&config_content)?;
-
-            Ok(serde_yaml::from_str(&config_content)?)
-        }
-
-        fn parse_chains(x: &clap::ArgMatches) -> Result<Vec<String>, Box<dyn Error>> {
+        fn parse_chains(x: &clap::ArgMatches) -> Result<HashSet<String>, Box<dyn Error>> {
             let chains = x
                 .values_of("chain")
                 .ok_or(Box::new(crate::error::MissingArgumentError::new(
                     "chain was not specified",
                 )))?;
 
-            Ok(Vec::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())))
+            Ok(HashSet::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())))
         }
 
         let cmd = if let Some(..) = command.subcommand_matches("init") {
@@ -226,7 +198,7 @@ impl ClapArgumentLoader {
                 }
             }
             Command::Run {
-                config: parse_config(x)?,
+                config: std::fs::read_to_string(x.value_of("config").unwrap())?,
                 chains: parse_chains(x)?,
                 args: args_map,
             }
@@ -242,7 +214,7 @@ impl ClapArgumentLoader {
             };
 
             Command::List {
-                config: parse_config(x)?,
+                config: std::fs::read_to_string(x.value_of("config").unwrap())?,
                 format,
             }
         } else if let Some(x) = command.subcommand_matches("describe") {
@@ -257,7 +229,7 @@ impl ClapArgumentLoader {
             };
 
             Command::Describe {
-                config: parse_config(x)?,
+                config: std::fs::read_to_string(x.value_of("config").unwrap())?,
                 chains: parse_chains(x)?,
                 format,
             }
