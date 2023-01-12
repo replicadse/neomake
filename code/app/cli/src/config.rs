@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct Config {
+pub(crate) struct Config {
     pub version: String,
     pub env: Option<HashMap<String, String>>,
     pub chains: HashMap<String, Chain>,
@@ -10,7 +10,7 @@ pub struct Config {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct Chain {
+pub(crate) struct Chain {
     pub description: Option<String>,
     pub env: Option<HashMap<String, String>>,
     pub workdir: Option<String>,
@@ -22,14 +22,14 @@ pub struct Chain {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct Shell {
+pub(crate) struct Shell {
     pub program: String,
     pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct MatrixEntry {
+pub(crate) struct MatrixEntry {
     pub workdir: Option<String>,
     pub env: Option<HashMap<String, String>>,
 }
@@ -44,7 +44,7 @@ impl Default for MatrixEntry {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct Task {
+pub(crate) struct Task {
     pub workdir: Option<String>,
     pub env: Option<HashMap<String, String>>,
     pub shell: Option<Shell>,

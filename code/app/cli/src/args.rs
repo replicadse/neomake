@@ -10,7 +10,7 @@ use std::{
 use crate::error::Error;
 
 #[derive(Debug)]
-pub struct CallArgs {
+pub(crate) struct CallArgs {
     pub experimental: bool,
     pub command: Command,
 }
@@ -54,7 +54,7 @@ pub enum Command {
     },
 }
 
-pub struct ClapArgumentLoader {}
+pub(crate) struct ClapArgumentLoader {}
 
 impl ClapArgumentLoader {
     pub fn load() -> Result<CallArgs, Box<dyn std::error::Error>> {

@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum Error {
+pub(crate) enum Error {
     #[error("generic")]
     Generic(#[from] Box<dyn std::error::Error+Sync+Send>),
 
