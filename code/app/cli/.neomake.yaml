@@ -16,10 +16,10 @@ chains:
       args:
         - -c
     matrix:
-      - env:
-          PRINT_VAL: value 0
-      - env:
-          PRINT_VAL: value 1
+      - - env:
+            PRINT_VAL: value 0
+        - env:
+            PRINT_VAL: value 1
     tasks:
       - shell:
           program: python
@@ -31,14 +31,22 @@ chains:
 
   a:
     matrix:
-      - env:
-          VALUE: a 0
-      - env:
-          VALUE: a 1
-      - env:
-          VALUE: a 2
+      - - env:
+            VA: A0
+        - env:
+            VA: A1
+      - - env:
+            VB: B0
+        - env:
+            VB: B1
+        - env:
+            VB: B2
+      - - env:
+            VC: C0
+        - env:
+            VC: C1
     tasks:
-      - script: echo "$VALUE"
+      - script: echo "$VA $VB $VC"
   b:
     pre:
       - a
@@ -67,8 +75,8 @@ chains:
 
   test:
     matrix:
-      - env:
-          OVERRIDE_ENV_VAR_0: new e0
+      - - env:
+            OVERRIDE_ENV_VAR_0: new e0
     tasks:
       - env:
           OVERRIDE_ENV_VAR_1: new e1

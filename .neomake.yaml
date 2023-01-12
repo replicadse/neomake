@@ -14,9 +14,9 @@ chains:
   build:
     workdir: ./code/app/cli
     matrix:
-      - env:
-          CARGO_ARGS: ""
-      - env:
-          CARGO_ARGS: "--release"
+      - - env:
+            CARGO_ARGS: ""
+        - env:
+            CARGO_ARGS: "--release"
     tasks:
       - script: cargo build $CARGO_ARGS

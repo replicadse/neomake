@@ -5,6 +5,7 @@ use std::{
         VecDeque,
     },
     iter::FromIterator,
+    // itertools::Itertools,
     sync::{
         Arc,
         Mutex,
@@ -12,16 +13,20 @@ use std::{
 };
 
 use interactive_process::InteractiveProcess;
+use itertools::Itertools;
 
 use crate::{
-    config,
     error::Error,
     output,
 };
 
+struct ExecVars {
+    env: HashMap<String, String>,
+}
+
 pub(crate) struct Config {
     pub output: Arc<Mutex<output::Controller>>,
-    pub chains: HashMap<String, config::Chain>,
+    pub chains: HashMap<String, crate::config::Chain>,
     pub env: HashMap<String, String>,
 }
 
@@ -40,7 +45,7 @@ impl Config {
             )))?
         }
 
-        let cfg: config::Config = serde_yaml::from_str(&data)?;
+        let cfg: crate::config::Config = serde_yaml::from_str(&data)?;
         Ok(Self {
             output: Arc::new(Mutex::new(output::Controller::new("==> ".to_owned(), 10))),
             chains: cfg.chains,
@@ -66,19 +71,39 @@ impl Config {
         for stage in stages {
             for tcn in stage {
                 let tc = &self.chains[&tcn];
-                let matrix = if let Some(m) = tc.matrix.clone() {
-                    m
+
+                let matrix_entry_default = crate::config::MatrixEntry { ..Default::default() };
+
+                let matrix_cp = if let Some(matrix) = &tc.matrix {
+                    matrix.iter().multi_cartesian_product().collect::<Vec<_>>()
                 } else {
-                    vec![config::MatrixEntry { ..Default::default() }]
+                    vec![vec![&matrix_entry_default]]
                 };
-                for mat in matrix {
+
+                for mat in matrix_cp {
                     for task in &tc.tasks {
                         let rendered_cmd = hb.render_template(&task.script, &arg_vals)?;
 
+                        let mut exec_vars = ExecVars {
+                            env: HashMap::<String, String>::new(),
+                        };
+
+                        let mut combined_matrix_env = Some(HashMap::<String, String>::new());
+                        for i in 0..mat.len() {
+                            if let Some(env_current) = &mat[i].env {
+                                combined_matrix_env.as_mut().unwrap().extend(env_current.clone());
+                            }
+                        }
+
+                        let self_env = Some(self.env.clone());
+                        for env in vec![&self_env, &tc.env, &combined_matrix_env, &task.env] {
+                            if let Some(m) = env {
+                                exec_vars.env.extend(m.clone());
+                            }
+                        }
+
                         // respect workdir from most inner to outer scope
                         let workdir = if let Some(workdir) = &task.workdir {
-                            Some(workdir)
-                        } else if let Some(workdir) = &mat.workdir {
                             Some(workdir)
                         } else if let Some(workdir) = &tc.workdir {
                             Some(workdir)
@@ -86,20 +111,12 @@ impl Config {
                             None
                         };
 
-                        let mut envs_merged = HashMap::<&String, &String>::new();
-                        let self_env = Some(self.env.clone());
-                        for env in vec![&self_env, &tc.env, &mat.env, &task.env] {
-                            if let Some(m) = env {
-                                envs_merged.extend(m);
-                            }
-                        }
-
                         let shell = if let Some(shell) = &task.shell {
                             shell.to_owned()
                         } else if let Some(shell) = &tc.shell {
                             shell.to_owned()
                         } else {
-                            config::Shell {
+                            crate::config::Shell {
                                 program: "sh".to_owned(),
                                 args: vec!["-c".to_owned()],
                             }
@@ -107,7 +124,7 @@ impl Config {
 
                         let mut cmd_proc = std::process::Command::new(&shell.program);
                         cmd_proc.args(shell.args);
-                        cmd_proc.envs(envs_merged);
+                        cmd_proc.envs(exec_vars.env);
                         if let Some(w) = workdir {
                             cmd_proc.current_dir(w);
                         }
@@ -125,7 +142,11 @@ impl Config {
                         .code();
                         if let Some(code) = cmd_exit_code {
                             if code != 0 {
-                                let err_msg = format!("command \"{}\" failed with code {}", &rendered_cmd, code,);
+                                let err_msg = format!(
+                                    "command \"{}\" failed
+                with code {}",
+                                    &rendered_cmd, code,
+                                );
                                 return Err(Box::new(Error::ChildProcess(err_msg)));
                             }
                         }

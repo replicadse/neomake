@@ -15,7 +15,7 @@ pub(crate) struct Chain {
     pub env: Option<HashMap<String, String>>,
     pub workdir: Option<String>,
     pub pre: Option<Vec<String>>,
-    pub matrix: Option<Vec<MatrixEntry>>,
+    pub matrix: Option<Vec<Vec<MatrixEntry>>>,
     pub tasks: Vec<Task>,
     pub shell: Option<Shell>,
 }
@@ -30,15 +30,11 @@ pub(crate) struct Shell {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub(crate) struct MatrixEntry {
-    pub workdir: Option<String>,
     pub env: Option<HashMap<String, String>>,
 }
 impl Default for MatrixEntry {
     fn default() -> Self {
-        Self {
-            env: None,
-            workdir: None,
-        }
+        Self { env: None }
     }
 }
 

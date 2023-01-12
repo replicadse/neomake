@@ -12,8 +12,8 @@
   Execute many tasks in sequence, easily re-use single tasks using YAML anchors.
 - **Task chain graphs**\
   Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use `neomake -e describe -c ...` to view the task chains and the stages (in order) they are executed in.
-- **Invocation matrices**\
-  Invoke task chains many times by specifying multiple entries in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's parallel matrix builds.
+- **Multidimensional invocation matrices**\
+  Invoke task chains many times by specifying multiple dimensions with multiple entries in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's parallel matrix builds but adds the feature of executing all permutations across the matrix dimensions.
 - **YAML**\
   No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for handy features such as YAML anchors (and everything in the YAML 1.2 standard).
 - **Customizable environment**\
