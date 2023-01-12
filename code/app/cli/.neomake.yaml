@@ -54,6 +54,10 @@ chains:
     tasks:
       - script: echo "minimal"
 
+  error:
+    tasks:
+      - script: exit 1
+
   graph:
     pre:
       - minimal

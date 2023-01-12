@@ -4,7 +4,6 @@ use std::{
         HashSet,
         VecDeque,
     },
-    error::Error,
     iter::FromIterator,
     sync::{
         Arc,
@@ -16,6 +15,7 @@ use interactive_process::InteractiveProcess;
 
 use crate::{
     config,
+    error::Error,
     output,
 };
 
@@ -26,7 +26,7 @@ pub(crate) struct Config {
 }
 
 impl Config {
-    pub fn load_from_config(data: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn load_from_config(data: &str) -> Result<Self, Box<dyn std::error::Error>> {
         #[derive(Debug, serde::Deserialize)]
         struct WithVersion {
             version: String,
@@ -34,10 +34,10 @@ impl Config {
         let v: WithVersion = serde_yaml::from_str(data)?;
 
         if v.version != "0.2" {
-            Err(Box::new(crate::error::VersionCompatibilityError::new(&format!(
+            Err(Error::VersionCompatibility(format!(
                 "config version {:?} is incompatible with this CLI version",
                 v
-            ))))?
+            )))?
         }
 
         let cfg: config::Config = serde_yaml::from_str(&data)?;
@@ -56,7 +56,7 @@ impl Config {
         &self,
         exec_chains: &HashSet<String>,
         args: &HashMap<String, String>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
         let arg_vals = self.build_args(args)?;
@@ -126,7 +126,7 @@ impl Config {
                         if let Some(code) = cmd_exit_code {
                             if code != 0 {
                                 let err_msg = format!("command \"{}\" failed with code {}", &rendered_cmd, code,);
-                                return Err(Box::new(crate::error::ChildProcessError::new(&err_msg)));
+                                return Err(Box::new(Error::ChildProcess(err_msg)));
                             }
                         }
                     }
@@ -136,7 +136,7 @@ impl Config {
         Ok(())
     }
 
-    pub async fn list(&self, format: crate::args::Format) -> Result<(), Box<dyn Error>> {
+    pub async fn list(&self, format: crate::args::Format) -> Result<(), Box<dyn std::error::Error>> {
         #[derive(Debug, serde::Serialize)]
         struct Output {
             chains: Vec<OutputChain>,
@@ -167,7 +167,11 @@ impl Config {
         Ok(())
     }
 
-    pub async fn describe(&self, chains: HashSet<String>, format: crate::args::Format) -> Result<(), Box<dyn Error>> {
+    pub async fn describe(
+        &self,
+        chains: HashSet<String>,
+        format: crate::args::Format,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let structure = self.determine_order(&chains)?;
 
         #[derive(Debug, serde::Serialize)]
@@ -189,7 +193,7 @@ impl Config {
         Ok(())
     }
 
-    fn build_args(&self, args: &HashMap<String, String>) -> Result<serde_json::Value, Box<dyn Error>> {
+    fn build_args(&self, args: &HashMap<String, String>) -> Result<serde_json::Value, Error> {
         fn recursive_add(
             namespace: &mut std::collections::VecDeque<String>,
             parent: &mut serde_json::Value,
@@ -223,7 +227,7 @@ impl Config {
         Ok(values_json)
     }
 
-    fn determine_order(&self, exec: &HashSet<String>) -> Result<Vec<HashSet<String>>, Box<dyn Error>> {
+    fn determine_order(&self, exec: &HashSet<String>) -> Result<Vec<HashSet<String>>, Error> {
         let mut map = HashMap::<String, Vec<String>>::new();
 
         let mut seen = HashSet::<String>::new();
@@ -258,9 +262,7 @@ impl Config {
                 })
                 .collect::<Vec<_>>();
             if leafs.len() == 0 {
-                return Err(Box::new(crate::error::TaskChainRecursion::new(
-                    "recursion in graph detected",
-                )));
+                return Err(Error::TaskChainRecursion);
             }
             let set = leafs.iter().map(|x| x.0.clone());
             seen.extend(set.clone());

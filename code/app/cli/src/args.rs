@@ -3,10 +3,11 @@ use std::{
         HashMap,
         HashSet,
     },
-    error::Error,
     iter::FromIterator,
     result::Result,
 };
+
+use crate::error::Error;
 
 #[derive(Debug)]
 pub struct CallArgs {
@@ -15,18 +16,14 @@ pub struct CallArgs {
 }
 
 impl CallArgs {
-    pub fn validate(&self) -> Result<(), Box<dyn Error>> {
+    pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
         if self.experimental {
             return Ok(());
         }
 
         match &self.command {
-            | Command::Describe { .. } => Err(Box::new(crate::error::ExperimentalCommandError::new(
-                "command is experimental",
-            ))),
-            | Command::List { .. } => Err(Box::new(crate::error::ExperimentalCommandError::new(
-                "command is experimental",
-            ))),
+            | Command::Describe { .. } => Err(Box::new(Error::ExperimentalCommand)),
+            | Command::List { .. } => Err(Box::new(Error::ExperimentalCommand)),
             | _ => Ok(()),
         }
     }
@@ -60,7 +57,7 @@ pub enum Command {
 pub struct ClapArgumentLoader {}
 
 impl ClapArgumentLoader {
-    pub fn load() -> Result<CallArgs, Box<dyn Error>> {
+    pub fn load() -> Result<CallArgs, Box<dyn std::error::Error>> {
         let command = clap::App::new("neomake")
             .version(env!("CARGO_PKG_VERSION"))
             .about("neomake")
@@ -177,12 +174,8 @@ impl ClapArgumentLoader {
             )
             .get_matches();
 
-        fn parse_chains(x: &clap::ArgMatches) -> Result<HashSet<String>, Box<dyn Error>> {
-            let chains = x
-                .values_of("chain")
-                .ok_or(Box::new(crate::error::MissingArgumentError::new(
-                    "chain was not specified",
-                )))?;
+        fn parse_chains(x: &clap::ArgMatches) -> Result<HashSet<String>, Error> {
+            let chains = x.values_of("chain").ok_or(Error::MissingArgument("chain".to_owned()))?;
 
             Ok(HashSet::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())))
         }
@@ -207,7 +200,7 @@ impl ClapArgumentLoader {
                 match f {
                     | "yaml" => Format::YAML,
                     | "json" => Format::JSON,
-                    | _ => Err(Box::new(crate::error::ArgumentError::new("unkown output format")))?,
+                    | _ => Err(Error::Argument("output".to_owned()))?,
                 }
             } else {
                 Format::JSON
@@ -222,7 +215,7 @@ impl ClapArgumentLoader {
                 match f {
                     | "yaml" => Format::YAML,
                     | "json" => Format::JSON,
-                    | _ => Err(Box::new(crate::error::ArgumentError::new("unkown output format")))?,
+                    | _ => Err(Error::Argument("output".to_owned()))?,
                 }
             } else {
                 Format::JSON
@@ -234,7 +227,7 @@ impl ClapArgumentLoader {
                 format,
             }
         } else {
-            return Err(Box::new(crate::error::UnknownCommandError::new("unknown command")));
+            return Err(Box::new(Error::UnknownCommand));
         };
 
         let callargs = CallArgs {

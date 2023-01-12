@@ -1,33 +1,22 @@
-#[macro_export]
-macro_rules! make_error {
-    ($name:ident) => {
-        #[derive(Debug, Clone)]
-        pub struct $name {
-            details: String,
-        }
+use thiserror::Error;
 
-        impl $name {
-            pub fn new(details: &str) -> Self {
-                Self {
-                    details: details.to_owned(),
-                }
-            }
-        }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("generic")]
+    Generic(#[from] Box<dyn std::error::Error+Sync+Send>),
 
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str(&self.details)
-            }
-        }
-
-        impl std::error::Error for $name {}
-    };
+    #[error("argument")]
+    Argument(String),
+    #[error("missing argument")]
+    MissingArgument(String),
+    #[error("experimental command")]
+    ExperimentalCommand,
+    #[error("child process")]
+    ChildProcess(String),
+    #[error("task chain recursion")]
+    TaskChainRecursion,
+    #[error("unknown command")]
+    UnknownCommand,
+    #[error("version compatibility")]
+    VersionCompatibility(String),
 }
-
-make_error!(ChildProcessError);
-make_error!(TaskChainRecursion);
-make_error!(UnknownCommandError);
-make_error!(ExperimentalCommandError);
-make_error!(MissingArgumentError);
-make_error!(ArgumentError);
-make_error!(VersionCompatibilityError);
