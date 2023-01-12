@@ -87,8 +87,8 @@ impl Config {
                         };
 
                         let mut envs_merged = HashMap::<&String, &String>::new();
-                        let selfenv = Some(self.env.clone());
-                        for env in vec![&selfenv, &tc.env, &mat.env, &task.env] {
+                        let self_env = Some(self.env.clone());
+                        for env in vec![&self_env, &tc.env, &mat.env, &task.env] {
                             if let Some(m) = env {
                                 envs_merged.extend(m);
                             }
