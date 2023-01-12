@@ -52,23 +52,38 @@ chains:
       program: bash
       args:
         - -c
+    matrix:
+      - - env:
+            PRINT_VAL: value 0
+        - env:
+            PRINT_VAL: value 1
     tasks:
       - shell:
           program: python
           args:
             - -c
         script: print('yada')
-      - script: "printf test"
+      - script: printf "$PRINT_VAL"
       - script: *anchor
 
   a:
     matrix:
-      - env:
-          VALUE: a 0
-      - env:
-          VALUE: a 1
+      - - env:
+            VA: A0
+        - env:
+            VA: A1
+      - - env:
+            VB: B0
+        - env:
+            VB: B1
+        - env:
+            VB: B2
+      - - env:
+            VC: C0
+        - env:
+            VC: C1
     tasks:
-      - script: echo "$VALUE"
+      - script: echo "$VA $VB $VC"
   b:
     pre:
       - a
@@ -84,6 +99,10 @@ chains:
     tasks:
       - script: echo "minimal"
 
+  error:
+    tasks:
+      - script: exit 1
+
   graph:
     pre:
       - minimal
@@ -93,8 +112,8 @@ chains:
 
   test:
     matrix:
-      - env:
-          OVERRIDE_ENV_VAR_0: new e0
+      - - env:
+            OVERRIDE_ENV_VAR_0: new e0
     tasks:
       - env:
           OVERRIDE_ENV_VAR_1: new e1
@@ -119,6 +138,7 @@ chains:
           sleep 1
           unknown-command
           echo "too far!"
+
 ```
 
 ## Graph execution
