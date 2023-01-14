@@ -38,7 +38,7 @@ impl Config {
         }
         let v: WithVersion = serde_yaml::from_str(data)?;
 
-        if v.version != "0.2" {
+        if v.version != "0.3" {
             Err(Error::VersionCompatibility(format!(
                 "config version {:?} is incompatible with this CLI version",
                 v

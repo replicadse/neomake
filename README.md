@@ -35,7 +35,7 @@
 ## Example configuration
 
 ```yaml
-version: 0.2
+version: 0.3
 
 env:
   DEFAULT_ENV_VAR: default var

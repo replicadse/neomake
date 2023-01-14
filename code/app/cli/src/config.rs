@@ -48,7 +48,7 @@ pub(crate) struct Task {
 }
 
 pub(crate) fn default_config() -> String {
-    r###"version: 0.2
+    r###"version: 0.3
 
 chains:
   minimal:
