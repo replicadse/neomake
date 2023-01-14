@@ -68,7 +68,6 @@ impl ClapArgumentLoader {
                     .long("experimental")
                     .value_name("EXPERIMENTAL")
                     .help("Enables experimental features that do not count as stable.")
-                    .required(false)
                     .takes_value(false),
             )
             .subcommand(clap::App::new("init").about("Initializes a new default configuration in the current folder."))
@@ -83,8 +82,6 @@ impl ClapArgumentLoader {
                             .value_name("CONFIG")
                             .help("The configuration file to use.")
                             .default_value("./.neomake.yaml")
-                            .multiple_values(false)
-                            .required(false)
                             .takes_value(true),
                     )
                     .arg(
@@ -103,8 +100,7 @@ impl ClapArgumentLoader {
                             .long("arg")
                             .value_name("ARG")
                             .help("An argument to the chain.")
-                            .multiple_values(true)
-                            .required(false)
+                            .multiple_occurrences(true)
                             .takes_value(true),
                     ),
             )
@@ -119,8 +115,6 @@ impl ClapArgumentLoader {
                             .value_name("CONFIG")
                             .help("The configuration file to use.")
                             .default_value("./.neomake.yaml")
-                            .multiple_values(false)
-                            .required(false)
                             .takes_value(true),
                     )
                     .arg(
@@ -141,7 +135,6 @@ impl ClapArgumentLoader {
                             .help("The output format.")
                             .default_value("yaml")
                             .possible_values(&["yaml", "json"])
-                            .required(false)
                             .takes_value(true),
                     ),
             )

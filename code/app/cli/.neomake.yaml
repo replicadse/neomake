@@ -97,7 +97,7 @@ chains:
           sleep 1
           echo "D"
           sleep 1
-          echo "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
+          echo "{{ args.test }} {{ args.test2 }}" # this will require an argument to be passed via '-a args.test="some-argument"'
           sleep 1
           unknown-command
           echo "too far!"
