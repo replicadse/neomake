@@ -11,23 +11,25 @@ use std::{
     result::Result,
 };
 
+use model::Config;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = args::ClapArgumentLoader::load()?;
     match args.command {
         | args::Command::Init => init().await,
         | args::Command::Run { config, chains, args } => {
-            let m = model::Config::load_from_config(&config)?;
+            let m = Config::load_from_str(&config)?;
             m.execute(&chains, &args).await?;
             Ok(())
         },
         | args::Command::List { config, format } => {
-            let m = model::Config::load_from_config(&config)?;
+            let m = Config::load_from_str(&config)?;
             m.list(format).await?;
             Ok(())
         },
         | args::Command::Describe { config, chains, format } => {
-            let m = model::Config::load_from_config(&config)?;
+            let m = Config::load_from_str(&config)?;
             m.describe(chains, format).await?;
             Ok(())
         },
