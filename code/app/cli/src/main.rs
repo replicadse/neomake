@@ -1,5 +1,3 @@
-#![feature(hash_drain_filter)]
-
 mod args;
 mod config;
 mod error;

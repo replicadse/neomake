@@ -1,24 +1,13 @@
 use std::{
-    collections::{
-        HashMap,
-        HashSet,
-        VecDeque,
-    },
+    collections::{HashMap, HashSet, VecDeque},
     iter::FromIterator,
-    // itertools::Itertools,
-    sync::{
-        Arc,
-        Mutex,
-    },
+    sync::{Arc, Mutex},
 };
 
 use interactive_process::InteractiveProcess;
 use itertools::Itertools;
 
-use crate::{
-    error::Error,
-    output,
-};
+use crate::{error::Error, output};
 
 struct ExecVars {
     env: HashMap<String, String>,
@@ -272,16 +261,23 @@ impl Config {
 
         let mut result = Vec::<HashSet<String>>::new();
         while map.len() > 0 {
+            // This implementation SHOULD make use of the unstable hash_drain_filter feature
+            // to use the drain_filter method on the hashmap but it's not allowed on stable yet.
             let leafs = map
-                .drain_filter(|_, v| {
+                .iter()
+                .filter_map(|(k, v)| {
                     for v_item in v {
                         if !seen.contains(v_item) {
-                            return false;
+                            return None;
                         }
                     }
-                    true
+                    Some((k.clone(), v.clone()))
                 })
                 .collect::<Vec<_>>();
+            for v in &leafs {
+                map.remove(&v.0);
+            }
+
             if leafs.len() == 0 {
                 return Err(Error::TaskChainRecursion);
             }
