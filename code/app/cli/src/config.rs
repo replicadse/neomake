@@ -54,9 +54,9 @@ chains:
   minimal:
     tasks:
       - script: |
-            set -e
-            printf "first line"
-            printf "second line"
+          set -e
+          printf "first line"
+          printf "second line"
 "###
     .to_owned()
 }
