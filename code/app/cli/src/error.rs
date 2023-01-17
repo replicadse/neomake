@@ -3,7 +3,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum Error {
     #[error("generic")]
-    Generic(#[from] Box<dyn std::error::Error+Sync+Send>),
+    Generic(#[from] Box<dyn std::error::Error + Sync + Send>),
 
     #[error("argument")]
     Argument(String),
@@ -19,4 +19,6 @@ pub(crate) enum Error {
     UnknownCommand,
     #[error("version compatibility")]
     VersionCompatibility(String),
+    #[error("not found")]
+    NotFound(String),
 }

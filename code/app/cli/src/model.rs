@@ -250,7 +250,12 @@ impl Config {
             }
             seen.insert(next.clone());
 
-            if let Some(pre) = &self.chains[&next].pre {
+            let c = self.chains.get(&next);
+            if c.is_none() {
+                return Err(Error::NotFound(next.to_owned()));
+            }
+
+            if let Some(pre) = &c.unwrap().pre {
                 map.insert(next, pre.clone());
                 pending.extend(pre.clone());
             } else {
