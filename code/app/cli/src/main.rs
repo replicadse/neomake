@@ -4,10 +4,7 @@ mod error;
 mod model;
 mod output;
 
-use std::{
-    error::Error,
-    result::Result,
-};
+use std::{error::Error, result::Result};
 
 use model::Config;
 
@@ -16,9 +13,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = args::ClapArgumentLoader::load()?;
     match args.command {
         | args::Command::Init => init().await,
-        | args::Command::Run { config, chains, args } => {
+        | args::Command::Run {
+            config,
+            chains,
+            args,
+            workers,
+        } => {
             let m = Config::load_from_str(&config)?;
-            m.execute(&chains, &args).await?;
+            m.execute(&chains, &args, workers).await?;
             Ok(())
         },
         | args::Command::List { config, format } => {

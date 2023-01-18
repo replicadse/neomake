@@ -1,8 +1,5 @@
 use std::{
-    collections::{
-        HashMap,
-        HashSet,
-    },
+    collections::{HashMap, HashSet},
     iter::FromIterator,
     result::Result,
 };
@@ -42,6 +39,7 @@ pub enum Command {
         config: String,
         chains: HashSet<String>,
         args: HashMap<String, String>,
+        workers: usize,
     },
     List {
         config: String,
@@ -102,6 +100,15 @@ impl ClapArgumentLoader {
                             .help("An argument to the chain.")
                             .multiple_occurrences(true)
                             .takes_value(true),
+                    )
+                    .arg(
+                        clap::Arg::new("workers")
+                            .short('w')
+                            .long("workers")
+                            .value_name("WORKERS")
+                            .help("Defines how many worker threads are used for tasks that can be executed in parllel.")
+                            .takes_value(true)
+                            .default_value("1"),
                     ),
             )
             .subcommand(
@@ -183,10 +190,12 @@ impl ClapArgumentLoader {
                     args_map.insert(spl[0].to_owned(), spl[1].to_owned());
                 }
             }
+
             Command::Run {
                 config: std::fs::read_to_string(x.value_of("config").unwrap())?,
                 chains: parse_chains(x)?,
                 args: args_map,
+                workers: str::parse::<usize>(x.value_of("workers").unwrap())?,
             }
         } else if let Some(x) = command.subcommand_matches("list") {
             let format = if let Some(f) = x.value_of("output") {

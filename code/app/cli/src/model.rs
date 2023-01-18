@@ -6,11 +6,14 @@ use std::{
 
 use interactive_process::InteractiveProcess;
 use itertools::Itertools;
+use threadpool::ThreadPool;
 
-use crate::{error::Error, output};
+use crate::{config::Shell, error::Error, output};
 
 struct ExecVars {
     env: HashMap<String, String>,
+    workdir: Option<String>,
+    shell: Shell,
 }
 
 pub(crate) struct Config {
@@ -50,6 +53,7 @@ impl Config {
         &self,
         exec_chains: &HashSet<String>,
         args: &HashMap<String, String>,
+        workers: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
@@ -58,6 +62,8 @@ impl Config {
         let stages = self.determine_order(exec_chains)?;
 
         for stage in stages {
+            let pool = ThreadPool::new(workers);
+
             for tcn in stage {
                 let tc = &self.chains[&tcn];
 
@@ -73,8 +79,29 @@ impl Config {
                     for task in &tc.tasks {
                         let rendered_cmd = hb.render_template(&task.script, &arg_vals)?;
 
+                        let workdir = if let Some(workdir) = &task.workdir {
+                            Some(workdir.to_owned())
+                        } else if let Some(workdir) = &tc.workdir {
+                            Some(workdir.to_owned())
+                        } else {
+                            None
+                        };
+
+                        let shell = if let Some(shell) = &task.shell {
+                            shell.to_owned()
+                        } else if let Some(shell) = &tc.shell {
+                            shell.to_owned()
+                        } else {
+                            crate::config::Shell {
+                                program: "sh".to_owned(),
+                                args: vec!["-c".to_owned()],
+                            }
+                        };
+
                         let mut exec_vars = ExecVars {
                             env: HashMap::<String, String>::new(),
+                            workdir,
+                            shell,
                         };
 
                         let mut combined_matrix_env = Some(HashMap::<String, String>::new());
@@ -91,57 +118,41 @@ impl Config {
                             }
                         }
 
-                        // respect workdir from most inner to outer scope
-                        let workdir = if let Some(workdir) = &task.workdir {
-                            Some(workdir)
-                        } else if let Some(workdir) = &tc.workdir {
-                            Some(workdir)
-                        } else {
-                            None
-                        };
+                        let thread_outp = self.output.clone();
+                        pool.execute(move || {
+                            let _ = || -> Result<(), Box<dyn std::error::Error>> {
+                                let mut cmd_proc = std::process::Command::new(&exec_vars.shell.program);
+                                cmd_proc.args(exec_vars.shell.args);
+                                cmd_proc.envs(exec_vars.env);
+                                if let Some(w) = exec_vars.workdir {
+                                    cmd_proc.current_dir(w);
+                                }
+                                cmd_proc.arg(&rendered_cmd);
 
-                        let shell = if let Some(shell) = &task.shell {
-                            shell.to_owned()
-                        } else if let Some(shell) = &tc.shell {
-                            shell.to_owned()
-                        } else {
-                            crate::config::Shell {
-                                program: "sh".to_owned(),
-                                args: vec!["-c".to_owned()],
-                            }
-                        };
-
-                        let mut cmd_proc = std::process::Command::new(&shell.program);
-                        cmd_proc.args(shell.args);
-                        cmd_proc.envs(exec_vars.env);
-                        if let Some(w) = workdir {
-                            cmd_proc.current_dir(w);
-                        }
-                        cmd_proc.arg(&rendered_cmd);
-                        let closure_controller = self.output.clone();
-                        let cmd_exit_code = InteractiveProcess::new(cmd_proc, move |l| match l {
-                            | Ok(v) => {
-                                let mut lock = closure_controller.lock().unwrap();
-                                lock.append(v);
-                                lock.draw().unwrap();
-                            },
-                            | Err(..) => {},
-                        })?
-                        .wait()?
-                        .code();
-                        if let Some(code) = cmd_exit_code {
-                            if code != 0 {
-                                let err_msg = format!(
-                                    "command \"{}\" failed
-                with code {}",
-                                    &rendered_cmd, code,
-                                );
-                                return Err(Box::new(Error::ChildProcess(err_msg)));
-                            }
-                        }
+                                let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
+                                    | Ok(v) => {
+                                        let mut lock = thread_outp.lock().unwrap();
+                                        lock.append(v);
+                                        lock.draw().unwrap();
+                                    },
+                                    | Err(..) => {},
+                                })?
+                                .wait()?;
+                                if let Some(code) = exit_status.code() {
+                                    if code != 0 {
+                                        let err_msg =
+                                            format!("command \"{}\" failed with code {}", &rendered_cmd, code,);
+                                        return Err(Box::new(Error::ChildProcess(err_msg)));
+                                    }
+                                }
+                                Ok(())
+                            }();
+                        });
                     }
                 }
             }
+
+            pool.join();
         }
         Ok(())
     }
