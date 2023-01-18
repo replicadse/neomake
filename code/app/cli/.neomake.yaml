@@ -15,24 +15,21 @@ chains:
             V0: 0
         - env:
             V0: 1
-        - env:
-            V0: 2
       - - env:
             V1: 0
         - env:
             V1: 1
-        - env:
-            V1: 2
       - - env:
             V2: 0
         - env:
             V2: 1
-        - env:
-            V2: 2
     tasks:
       - script: |
+          printf "STEP A -- $V0 $V1 $V2"
           sleep 2
-          printf "$V0 $V1 $V2"
+          exit 1
+      - script: |
+          printf "STEP B -- $V0 $V1 V2"
 
   python:
     description: This is an example of using multiple execution environments (shell and python).

@@ -11,6 +11,7 @@ use threadpool::ThreadPool;
 use crate::{config::Shell, error::Error, output};
 
 struct ExecVars {
+    cmd: String,
     env: HashMap<String, String>,
     workdir: Option<String>,
     shell: Shell,
@@ -63,6 +64,9 @@ impl Config {
 
         for stage in stages {
             let pool = ThreadPool::new(workers);
+            let (tx, rx) = std::sync::mpsc::channel::<Result<(), Error>>();
+
+            let mut execs = Vec::<Vec<ExecVars>>::new(); // chains + tasks -> parallelize on l0
 
             for tcn in stage {
                 let tc = &self.chains[&tcn];
@@ -76,6 +80,7 @@ impl Config {
                 };
 
                 for mat in matrix_cp {
+                    let mut task_execs = Vec::<ExecVars>::new();
                     for task in &tc.tasks {
                         let rendered_cmd = hb.render_template(&task.script, &arg_vals)?;
 
@@ -99,6 +104,7 @@ impl Config {
                         };
 
                         let mut exec_vars = ExecVars {
+                            cmd: rendered_cmd,
                             env: HashMap::<String, String>::new(),
                             workdir,
                             shell,
@@ -118,41 +124,64 @@ impl Config {
                             }
                         }
 
-                        let thread_outp = self.output.clone();
-                        pool.execute(move || {
-                            let _ = || -> Result<(), Box<dyn std::error::Error>> {
-                                let mut cmd_proc = std::process::Command::new(&exec_vars.shell.program);
-                                cmd_proc.args(exec_vars.shell.args);
-                                cmd_proc.envs(exec_vars.env);
-                                if let Some(w) = exec_vars.workdir {
-                                    cmd_proc.current_dir(w);
-                                }
-                                cmd_proc.arg(&rendered_cmd);
-
-                                let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
-                                    | Ok(v) => {
-                                        let mut lock = thread_outp.lock().unwrap();
-                                        lock.append(v);
-                                        lock.draw().unwrap();
-                                    },
-                                    | Err(..) => {},
-                                })?
-                                .wait()?;
-                                if let Some(code) = exit_status.code() {
-                                    if code != 0 {
-                                        let err_msg =
-                                            format!("command \"{}\" failed with code {}", &rendered_cmd, code,);
-                                        return Err(Box::new(Error::ChildProcess(err_msg)));
-                                    }
-                                }
-                                Ok(())
-                            }();
-                        });
+                        task_execs.push(exec_vars);
                     }
+                    execs.push(task_execs);
                 }
             }
 
-            pool.join();
+            let signal_cnt = execs.len();
+            for e in execs {
+                let output_thread = self.output.clone();
+                let tx_thread = tx.clone();
+                pool.execute(move || {
+                    let res = move || -> Result<(), Box<dyn std::error::Error>> {
+                        for exec_vars in e {
+                            let mut cmd_proc = std::process::Command::new(&exec_vars.shell.program);
+                            cmd_proc.args(exec_vars.shell.args);
+                            cmd_proc.envs(exec_vars.env);
+                            if let Some(w) = exec_vars.workdir {
+                                cmd_proc.current_dir(w);
+                            }
+                            cmd_proc.arg(&exec_vars.cmd);
+
+                            let loc_out = output_thread.clone();
+                            let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
+                                | Ok(v) => {
+                                    let mut lock = loc_out.lock().unwrap();
+                                    lock.append(v);
+                                    lock.draw().unwrap();
+                                },
+                                | Err(..) => {},
+                            })?
+                            .wait()?;
+                            if let Some(code) = exit_status.code() {
+                                if code != 0 {
+                                    let err_msg = format!("command \"{}\" failed with code {}", &exec_vars.cmd, code,);
+                                    return Err(Box::new(Error::ChildProcess(err_msg)));
+                                }
+                            }
+                        }
+                        Ok(())
+                    }();
+                    match res {
+                        | Ok(..) => tx_thread.send(Ok(())).expect("send failed"),
+                        | Err(e) => tx_thread
+                            // error formatting should be improved
+                            .send(Err(Error::Generic(format!("{:?}", e))))
+                            .expect("send failed"),
+                    }
+                });
+            }
+            let errs = rx
+                .iter()
+                .take(signal_cnt)
+                .filter(|x| x.is_err())
+                .map(|x| x.expect_err("expect"))
+                .collect::<Vec<_>>();
+            if errs.len() > 0 {
+                return Err(Box::new(Error::Many(errs)));
+            }
         }
         Ok(())
     }
