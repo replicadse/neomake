@@ -39,8 +39,6 @@ jobs:
       - name: install rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          rustup toolchain add 1.58 --profile minimal
-          rustup default 1.58-x86_64-unknown-linux-gnu
       - name: publish
         run: |
           cd code/app/cli
@@ -63,8 +61,6 @@ jobs:
       - name: install rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          rustup toolchain add 1.58 --profile minimal
-          rustup default 1.58-x86_64-unknown-linux-gnu
           cargo install cargo-deb
       - name: publish
         run: |
