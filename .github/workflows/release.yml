@@ -37,7 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: install rust
-        run: "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          rustup default stable-x86_64-unknown-linux-gnu
       - name: publish
         run: |
           cd code/app/cli
@@ -60,6 +62,7 @@ jobs:
       - name: install rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          rustup default stable-x86_64-unknown-linux-gnu
           cargo install cargo-deb
       - name: publish
         run: |
