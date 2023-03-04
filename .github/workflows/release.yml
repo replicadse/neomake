@@ -86,7 +86,7 @@ jobs:
           asset_content_type: application/tar+gzip
       - name: publish
         run: |
-          cargo login ${{ secrets.CRATES_IO_TOKEN }}
+          cargo login ${{ secrets.CRATES_IO_LOGIN_TOKEN }}
           sed 's/version = "0.0.0"/version = "'${{ needs.version.outputs.version }}'"/g' Cargo.toml > Cargo.toml.tmp
           mv Cargo.toml.tmp Cargo.toml
           cargo publish --target x86_64-unknown-linux-gnu --allow-dirty
