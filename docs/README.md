@@ -27,13 +27,6 @@
 
 1) `cargo install neomake`
 
-## Usage
-
-- `neomake init`
-- `neomake run -c test -c othertest -a args.test="some argument"`
-- `neomake -e describe -c test -c othertest -o yaml`
-- `neomake -e ls`
-
 ## Example configuration
 
 ```yaml
