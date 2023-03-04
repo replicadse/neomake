@@ -237,7 +237,7 @@ impl ClapArgumentLoader {
                 config: std::fs::read_to_string(x.get_one::<String>("config").unwrap())?,
                 chains: parse_chains(x)?,
                 args: args_map,
-                workers: *x.get_one::<usize>("workers").unwrap(),
+                workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap())?,
             }
         } else if let Some(x) = command.subcommand_matches("list") {
             let format = match x.get_one::<String>("output").unwrap().as_str() {
