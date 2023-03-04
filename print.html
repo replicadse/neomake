@@ -1,0 +1,485 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>neomake</title>
+        <meta name="robots" content="noindex" />
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Index</a></li><li class="chapter-item expanded "><a href="reference.html"><strong aria-hidden="true">2.</strong> Reference</a></li><li class="chapter-item expanded "><a href="#.html"><strong aria-hidden="true">3.</strong> Adrs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="adrs/1-usage-of-adrs.html"><strong aria-hidden="true">3.1.</strong> Usage of Adrs</a></li><li class="chapter-item expanded "><a href="adrs/2-usage-of-keywords.html"><strong aria-hidden="true">3.2.</strong> Usage of Keywords</a></li><li class="chapter-item expanded "><a href="adrs/3-versioning.html"><strong aria-hidden="true">3.3.</strong> Versioning</a></li><li class="chapter-item expanded "><a href="adrs/4-experimental-flag.html"><strong aria-hidden="true">3.4.</strong> Experimental Flag</a></li><li class="chapter-item expanded "><a href="adrs/5-feature-flags.html"><strong aria-hidden="true">3.5.</strong> Feature Flags</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">neomake</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="neomake"><a class="header" href="#neomake">neomake</a></h1>
+<p><code>neomake</code> is a fully open source task runner CLI utility that acts as a modern alternative to known utilities.</p>
+<h2 id="project-state"><a class="header" href="#project-state">Project state</a></h2>
+<p><code>neomake</code> is currently a pre-release and to be considered as <strong>unstable</strong>. It is actively maintained and used in production.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<ul>
+<li><strong>Task chains</strong><br />
+Execute many tasks in sequence, easily re-use single tasks using YAML anchors.</li>
+<li><strong>Task chain graphs</strong><br />
+Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use <code>neomake -e describe -c ...</code> to view the task chains and the stages (in order) they are executed in.</li>
+<li><strong>Parallel task execution</strong><br />
+All tasks inside of the same stage can be executed in parallel. Furthermore, all invocations of the contained task chains as defined per the cartesian product of the invocation matrix can also be executed in parallel. Stages as well as tasks inside of a single task chain are always executed in sequence. You can define the number of worker threads via the <code>-w</code> flag.</li>
+<li><strong>Multidimensional invocation matrices</strong><br />
+Invoke task chains many times by specifying multiple dimensions with variable lengths in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's parallel matrix builds but adds the feature of executing all elements in the cartesian product of the matrix dimensions.</li>
+<li><strong>YAML</strong><br />
+No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand <code>yaml</code> file, including support for handy features such as YAML anchors (and everything in the YAML 1.2 standard).</li>
+<li><strong>Customizable environment</strong><br />
+You can customize which shell or program (such as python) <code>neomake</code> uses as interpreter for the command. You can also specify arguments that are provided per invocation via the command line, working directories and environment variables on multiple different levels. Generally, the most inner scope will extend or replace the outer scope.</li>
+</ul>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p><code>neomake</code> is distributed through <code>cargo</code>.</p>
+<ol>
+<li><code>cargo install neomake</code></li>
+</ol>
+<h2 id="example-configuration"><a class="header" href="#example-configuration">Example configuration</a></h2>
+<pre><code class="language-yaml">version: 0.3
+
+env:
+  DEFAULT_ENV_VAR: default var
+  OVERRIDE_ENV_VAR_0: old e0
+  OVERRIDE_ENV_VAR_1: old e1
+
+.anchor: &amp;anchor |
+  printf &quot;test anchor&quot;
+
+chains:
+  python:
+    description: This is an example of using multiple execution environments (shell and python).
+    shell:
+      program: bash
+      args:
+        - -c
+    matrix:
+      - - env:
+            PRINT_VAL: value 0
+        - env:
+            PRINT_VAL: value 1
+    tasks:
+      - shell:
+          program: python
+          args:
+            - -c
+        script: print('yada')
+      - script: printf &quot;$PRINT_VAL&quot;
+      - script: *anchor
+
+  a:
+    matrix:
+      - - env:
+            VA: A0
+        - env:
+            VA: A1
+      - - env:
+            VB: B0
+        - env:
+            VB: B1
+        - env:
+            VB: B2
+      - - env:
+            VC: C0
+        - env:
+            VC: C1
+    tasks:
+      - script: echo &quot;$VA $VB $VC&quot;
+  b:
+    pre:
+      - a
+    tasks:
+      - script: echo &quot;b&quot;
+  c:
+    pre:
+      - b
+    tasks:
+      - script: echo &quot;c&quot;
+
+  minimal:
+    tasks:
+      - script: echo &quot;minimal&quot;
+
+  error:
+    tasks:
+      - script: exit 1
+
+  graph:
+    pre:
+      - minimal
+      - a
+      - b
+    tasks: []
+
+  test:
+    matrix:
+      - - env:
+            OVERRIDE_ENV_VAR_0: new e0
+    tasks:
+      - env:
+          OVERRIDE_ENV_VAR_1: new e1
+        script: |
+          set -e
+
+          echo &quot;$DEFAULT_ENV_VAR&quot;
+          sleep 1
+          echo &quot;$OVERRIDE_ENV_VAR_0&quot;
+          sleep 1
+          echo &quot;$OVERRIDE_ENV_VAR_1&quot;
+          sleep 1
+          echo &quot;A&quot;
+          sleep 1
+          echo &quot;B&quot;
+          sleep 1
+          echo &quot;C&quot;
+          sleep 1
+          echo &quot;D&quot;
+          sleep 1
+          echo &quot;{{ args.test }}&quot; # this will require an argument to be passed via '-a args.test=&quot;some-argument&quot;'
+          sleep 1
+          unknown-command
+          echo &quot;too far!&quot;
+
+</code></pre>
+<h2 id="graph-execution"><a class="header" href="#graph-execution">Graph execution</a></h2>
+<p>Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduped so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.<br />
+Let's assume the following graph of task chains and their dependencies:</p>
+<p><code>neomake -e ls</code></p>
+<pre><code>---
+chains:
+  - name: A
+  - name: B
+  - name: C
+    pre:
+      - A
+  - name: D
+    pre:
+      - B
+  - name: E
+    pre:
+      - A
+      - D
+</code></pre>
+<p>In words, <code>A</code> and <code>B</code> are nodes without any prerequisites whereas <code>C</code> depends on <code>A</code> and <code>D</code> depends on <code>B</code>. Notably, <code>E</code> depends on both <code>A</code> and <code>D</code>. This means that <code>E</code> also transiently depends on any dependencies of <code>A</code> (<code>{}</code>) and <code>D</code> (<code>{B}</code>).</p>
+<p>A CLI call such as <code>neomake -e describe -cC -cE</code> would render the following task executions.</p>
+<pre><code>---
+stages:
+  - - A
+    - B
+  - - D
+  - - E
+</code></pre>
+<p>Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. <code>neomake</code> is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.</p>
+<h2 id="why"><a class="header" href="#why">Why</a></h2>
+<p>Why would someone build a task runner if there's many alternatives out there? A few of the most well known task running utilities / frameworks are (non exhaustive):</p>
+<ul>
+<li><code>make</code> (<code>Makefile</code>) - the original as well as many different implementations</li>
+<li><code>Earthly</code> (<code>Earthfile</code>) - executing tasks inside of containers</li>
+<li><code>pyinvoke</code> (<code>tasks.py</code>) - executing tasks from within python scripts</li>
+</ul>
+<p>I built this utility because all of the alternatives I have tried, including the ones listed above were lacking some features. I was basically looking for a subset of the functionality which the GitLab pipelines provide incl. features such as matrix builds and more. Especially things like invoking commands in many locations, parallelizing tasks, easy parameterization and a few more.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="command-line-help-for-neomake"><a class="header" href="#command-line-help-for-neomake">Command-Line Help for <code>neomake</code></a></h1>
+<p>This document contains the help content for the <code>neomake</code> command-line program.</p>
+<p><strong>Command Overview:</strong></p>
+<ul>
+<li><a href="reference.html#neomake"><code>neomake</code>↴</a></li>
+<li><a href="reference.html#neomake-man"><code>neomake man</code>↴</a></li>
+<li><a href="reference.html#neomake-autocomplete"><code>neomake autocomplete</code>↴</a></li>
+<li><a href="reference.html#neomake-init"><code>neomake init</code>↴</a></li>
+<li><a href="reference.html#neomake-run"><code>neomake run</code>↴</a></li>
+<li><a href="reference.html#neomake-describe"><code>neomake describe</code>↴</a></li>
+<li><a href="reference.html#neomake-list"><code>neomake list</code>↴</a></li>
+</ul>
+<h2 id="neomake-1"><a class="header" href="#neomake-1"><code>neomake</code></a></h2>
+<p>A rusty text templating application for CLIs.</p>
+<p><strong>Usage:</strong> <code>neomake [OPTIONS] &lt;COMMAND&gt;</code></p>
+<h6 id="subcommands"><a class="header" href="#subcommands"><strong>Subcommands:</strong></a></h6>
+<ul>
+<li><code>man</code> — Renders the manual.</li>
+<li><code>autocomplete</code> — Renders shell completion scripts.</li>
+<li><code>init</code> — Initializes a new default configuration in the current folder.</li>
+<li><code>run</code> — Runs task chains.</li>
+<li><code>describe</code> — Describes the execution graph for a given task chain configuration.</li>
+<li><code>list</code> — Lists all available task chains.</li>
+</ul>
+<h6 id="options"><a class="header" href="#options"><strong>Options:</strong></a></h6>
+<ul>
+<li><code>-e</code>, <code>--experimental &lt;EXPERIMENTAL&gt;</code> — enables experimental features</li>
+</ul>
+<h2 id="neomake-man"><a class="header" href="#neomake-man"><code>neomake man</code></a></h2>
+<p>Renders the manual.</p>
+<p><strong>Usage:</strong> <code>neomake man --out &lt;out&gt; --format &lt;format&gt;</code></p>
+<h6 id="options-1"><a class="header" href="#options-1"><strong>Options:</strong></a></h6>
+<ul>
+<li>
+<p><code>-o</code>, <code>--out &lt;OUT&gt;</code></p>
+</li>
+<li>
+<p><code>-f</code>, <code>--format &lt;FORMAT&gt;</code></p>
+<p>Possible values: <code>manpages</code>, <code>markdown</code></p>
+</li>
+</ul>
+<h2 id="neomake-autocomplete"><a class="header" href="#neomake-autocomplete"><code>neomake autocomplete</code></a></h2>
+<p>Renders shell completion scripts.</p>
+<p><strong>Usage:</strong> <code>neomake autocomplete --out &lt;out&gt; --shell &lt;shell&gt;</code></p>
+<h6 id="options-2"><a class="header" href="#options-2"><strong>Options:</strong></a></h6>
+<ul>
+<li>
+<p><code>-o</code>, <code>--out &lt;OUT&gt;</code></p>
+</li>
+<li>
+<p><code>-s</code>, <code>--shell &lt;SHELL&gt;</code></p>
+<p>Possible values: <code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>elvish</code>, <code>powershell</code></p>
+</li>
+</ul>
+<h2 id="neomake-init"><a class="header" href="#neomake-init"><code>neomake init</code></a></h2>
+<p>Initializes a new default configuration in the current folder.</p>
+<p><strong>Usage:</strong> <code>neomake init</code></p>
+<h2 id="neomake-run"><a class="header" href="#neomake-run"><code>neomake run</code></a></h2>
+<p>Runs task chains.</p>
+<p><strong>Usage:</strong> <code>neomake run [OPTIONS]</code></p>
+<h6 id="options-3"><a class="header" href="#options-3"><strong>Options:</strong></a></h6>
+<ul>
+<li>
+<p><code>-f</code>, <code>--config &lt;CONFIG&gt;</code> — The configuration file to use.</p>
+<p>Default value: <code>./.neomake.yaml</code></p>
+</li>
+<li>
+<p><code>-c</code>, <code>--chain &lt;CHAIN&gt;</code> — Which chain to execute.</p>
+</li>
+<li>
+<p><code>-a</code>, <code>--arg &lt;ARG&gt;</code> — An argument to the chain.</p>
+</li>
+<li>
+<p><code>-w</code>, <code>--workers &lt;WORKERS&gt;</code> — Defines how many worker threads are used for tasks that can be executed in parllel.</p>
+<p>Default value: <code>1</code></p>
+</li>
+</ul>
+<h2 id="neomake-describe"><a class="header" href="#neomake-describe"><code>neomake describe</code></a></h2>
+<p>Describes the execution graph for a given task chain configuration.</p>
+<p><strong>Usage:</strong> <code>neomake describe [OPTIONS]</code></p>
+<h6 id="options-4"><a class="header" href="#options-4"><strong>Options:</strong></a></h6>
+<ul>
+<li>
+<p><code>-f</code>, <code>--config &lt;CONFIG&gt;</code> — The configuration file to use.</p>
+<p>Default value: <code>./.neomake.yaml</code></p>
+</li>
+<li>
+<p><code>-c</code>, <code>--chain &lt;CHAIN&gt;</code> — Which chain to execute.</p>
+</li>
+<li>
+<p><code>-o</code>, <code>--output &lt;OUTPUT&gt;</code> — The output format.</p>
+<p>Default value: <code>yaml</code></p>
+<p>Possible values: <code>yaml</code>, <code>json</code></p>
+</li>
+</ul>
+<h2 id="neomake-list"><a class="header" href="#neomake-list"><code>neomake list</code></a></h2>
+<p>Lists all available task chains.</p>
+<p><strong>Usage:</strong> <code>neomake list [OPTIONS]</code></p>
+<h6 id="options-5"><a class="header" href="#options-5"><strong>Options:</strong></a></h6>
+<ul>
+<li>
+<p><code>-f</code>, <code>--config &lt;CONFIG&gt;</code> — The configuration file to use.</p>
+<p>Default value: <code>./.neomake.yaml</code></p>
+</li>
+<li>
+<p><code>-o</code>, <code>--output &lt;OUTPUT&gt;</code> — The output format.</p>
+<p>Default value: <code>yaml</code></p>
+<p>Possible values: <code>yaml</code>, <code>json</code></p>
+</li>
+</ul>
+<hr/>
+<p><small><i>
+This document was generated automatically by
+<a href="https://crates.io/crates/clap-markdown"><code>clap-markdown</code></a>.
+</i></small></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="adrs"><a class="header" href="#adrs">Adrs</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="1-usage-of-adrs"><a class="header" href="#1-usage-of-adrs">1: Usage of ADRs</a></h1>
+<p>This project uses ADRs. ADRs are documented in this repository and format. In doubt, the documents in this repository and documentation are to be considered as the single source of truth.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="2-usage-of-keywords"><a class="header" href="#2-usage-of-keywords">2: Usage of keywords</a></h1>
+<p>The key words &quot;MUST&quot;, &quot;MUST NOT&quot;, &quot;REQUIRED&quot;, &quot;SHALL&quot;, &quot;SHALL NOT&quot;, &quot;SHOULD&quot;, &quot;SHOULD NOT&quot;, &quot;RECOMMENDED&quot;, &quot;NOT RECOMMENDED&quot;, &quot;MAY&quot;, and &quot;OPTIONAL&quot; in this document and in all documents in it's subtree as well as all documents that are directly related to this document are to be interpreted as described in https://tools.ietf.org/html/bcp14[BCP 14], https://tools.ietf.org/html/rfc2119[RFC2119] and https://tools.ietf.org/html/rfc8174[RFC8174] when, and only when, they appear in all capitals, as shown here.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="3-versioning"><a class="header" href="#3-versioning">3: Versioning</a></h1>
+<p>This project makes use of https://semver.org[the semver v2 versioning scheme] for all parts of the official public API. The public stable API is a subset of all available features (see link:/neomake/docs/adrs/4-experimental-flag[this page]).</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="4-experimental-flag"><a class="header" href="#4-experimental-flag">4: Experimental flag</a></h1>
+<p>There is a application level argument (flag) <code>experimental</code> (<code>-e</code> | <code>--experimental</code>) that indicates that experimental features can now be accessed. This flag explicitly marks features that are NOT part of the official public API and therefore NOT considered when applying the versioning scheme (see link:/neomake/docs/adrs/3-versioning[ADR 3]). +
+This flag is designed to be used with and therefore CAN be used with link:/neomake/docs/adrs/5-feature-flags[feature Flags as specified in ADR 5].</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="5-feature-flags"><a class="header" href="#5-feature-flags">5: Feature flags</a></h1>
+<p>This project makes use of cargo feature flags. Feature flags count as part of the public API and are therefore to be considered when applying the version rules IF NOT marked as experimental (see link:/neomake/docs/adrs/4-experimental-flag[ADR 4]). +
+All feature flags MUST be documented in an appropriate manner in the documentation.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>
