@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use clap::Arg;
+use clap::{Arg, ArgAction};
 
 use crate::error::Error;
 
@@ -132,9 +132,16 @@ impl ClapArgumentLoader {
                         Arg::new("chain")
                             .short('c')
                             .long("chain")
+                            .action(ArgAction::Append)
                             .help("Which chain to execute."),
                     )
-                    .arg(Arg::new("arg").short('a').long("arg").help("An argument to the chain."))
+                    .arg(
+                        Arg::new("arg")
+                            .short('a')
+                            .long("arg")
+                            .action(ArgAction::Append)
+                            .help("An argument to the chain.")
+                    )
                     .arg(
                         Arg::new("workers")
                             .short('w')
@@ -158,6 +165,7 @@ impl ClapArgumentLoader {
                         Arg::new("chain")
                             .short('c')
                             .long("chain")
+                            .action(ArgAction::Append)
                             .help("Which chain to execute."),
                     )
                     .arg(
