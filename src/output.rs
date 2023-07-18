@@ -21,7 +21,7 @@ impl Controller {
 
     pub fn draw(&mut self) -> Result<(), Box<dyn Error>> {
         let mut stdout = std::io::stdout();
-        for l in &self.pending_lines {
+        for l in self.pending_lines.drain(..) {
             stdout.queue(Print(format!("{}{}\n", &self.prefix, l))).unwrap();
         }
         stdout.flush()?;

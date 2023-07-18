@@ -28,8 +28,7 @@ impl CallArgs {
         }
 
         match &self.command {
-            | Command::Describe { .. } => Err(Box::new(Error::ExperimentalCommand)),
-            | Command::List { .. } => Err(Box::new(Error::ExperimentalCommand)),
+            // | Command::Describe { .. } => Err(Box::new(Error::ExperimentalCommand)),
             | _ => Ok(()),
         }
     }
@@ -140,7 +139,7 @@ impl ClapArgumentLoader {
                             .short('a')
                             .long("arg")
                             .action(ArgAction::Append)
-                            .help("An argument to the chain.")
+                            .help("An argument to the chain."),
                     )
                     .arg(
                         Arg::new("workers")

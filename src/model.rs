@@ -24,7 +24,7 @@ pub(crate) struct Config {
 }
 
 impl Config {
-    pub fn load_from_str(data: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_from_str(data: &str) -> Result<Self, Error> {
         #[derive(Debug, serde::Deserialize)]
         struct WithVersion {
             version: String,

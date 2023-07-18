@@ -9,12 +9,12 @@ pub(crate) enum Error {
     #[error("many")]
     Many(Vec<Self>),
 
+    // #[error("experimental command")]
+    // ExperimentalCommand,
     #[error("argument")]
     Argument(String),
     #[error("missing argument")]
     MissingArgument(String),
-    #[error("experimental command")]
-    ExperimentalCommand,
     #[error("child process")]
     ChildProcess(String),
     #[error("task chain recursion")]
@@ -25,4 +25,8 @@ pub(crate) enum Error {
     VersionCompatibility(String),
     #[error("not found")]
     NotFound(String),
+    #[error("serde json")]
+    SerdeJson(#[from] serde_json::Error),
+    #[error("serde yaml")]
+    SerdeYaml(#[from] serde_yaml::Error),
 }

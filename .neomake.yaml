@@ -12,7 +12,14 @@ chains:
           set -e
           cargo build $FEATURES $RELEASE
 
+  test:
+    tasks:
+      - script: |
+          set -e
+          cargo test
+
   "hook:pre-push":
     pre:
       - build
+      - test
     tasks: []
