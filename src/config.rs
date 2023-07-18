@@ -20,22 +20,17 @@ pub(crate) struct Chain {
     pub shell: Option<Shell>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub(crate) struct Shell {
     pub program: String,
     pub args: Vec<String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub(crate) struct MatrixEntry {
     pub env: Option<HashMap<String, String>>,
-}
-impl Default for MatrixEntry {
-    fn default() -> Self {
-        Self { env: None }
-    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
