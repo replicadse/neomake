@@ -40,7 +40,7 @@ impl Config {
 
         let cfg: crate::config::Config = serde_yaml::from_str(&data)?;
         Ok(Self {
-            output: Arc::new(Mutex::new(output::Controller::new("==> ".to_owned(), 10))),
+            output: Arc::new(Mutex::new(output::Controller::new("==> ".to_owned()))),
             chains: cfg.chains,
             env: if let Some(e) = cfg.env {
                 e
