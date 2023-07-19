@@ -1,17 +1,17 @@
 # neomake
 
-`neomake` is a fully open source task runner CLI utility that acts as a modern alternative to known utilities.
+`neomake` is a task runner CLI utility that acts as a modern alternative to known utilities like `Makefile`s.
 
 ## Project state
 
-`neomake` is currently a pre-release and to be considered as **unstable**. It is actively maintained and used in production.
+`neomake` is released and  **stable**. It is actively maintained and used in production.
 
 ## Features
 
 - **Task chains**\
   Execute many tasks in sequence, easily re-use single tasks using YAML anchors.
 - **Task chain graphs**\
-  Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use `neomake -e describe -c ...` to view the task chains and the stages (in order) they are executed in.
+  Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use `neomake describe -c ...` to view the task chains and the stages (in order) they are executed in.
 - **Parallel task execution**\
   All tasks inside of the same stage can be executed in parallel. Furthermore, all invocations of the contained task chains as defined per the cartesian product of the invocation matrix can also be executed in parallel. Stages as well as tasks inside of a single task chain are always executed in sequence. You can define the number of worker threads via the `-w` flag.
 - **Multidimensional invocation matrices**\
@@ -19,7 +19,9 @@
 - **YAML**\
   No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for handy features such as YAML anchors (and everything in the YAML 1.2 standard).
 - **Customizable environment**\
-  You can customize which shell or program (such as python) `neomake` uses as interpreter for the command. You can also specify arguments that are provided per invocation via the command line, working directories and environment variables on multiple different levels. Generally, the most inner scope will extend or replace the outer scope.
+  You can customize which shell or program (such as bash or python) `neomake` uses as interpreter for the command. You can also specify arguments that are provided per invocation via the command line, working directories and environment variables on multiple different levels. Generally, values defined in the inner scope will extend and replace the outer scope.
+- **Plan & execute**\
+  Supporting execution of commands in two stages. First plan and render the entire execution. Then invoke the execution engine with the plan. This way, plans can be stored and reviewed before execution.
 
 ## Installation
 
@@ -27,123 +29,20 @@
 
 1) `cargo install neomake`
 
-## Example configuration
-
-```yaml
-version: 0.3
-
-env:
-  DEFAULT_ENV_VAR: default var
-  OVERRIDE_ENV_VAR_0: old e0
-  OVERRIDE_ENV_VAR_1: old e1
-
-.anchor: &anchor |
-  printf "test anchor"
-
-chains:
-  python:
-    description: This is an example of using multiple execution environments (shell and python).
-    shell:
-      program: bash
-      args:
-        - -c
-    matrix:
-      - - env:
-            PRINT_VAL: value 0
-        - env:
-            PRINT_VAL: value 1
-    tasks:
-      - shell:
-          program: python
-          args:
-            - -c
-        script: print('yada')
-      - script: printf "$PRINT_VAL"
-      - script: *anchor
-
-  a:
-    matrix:
-      - - env:
-            VA: A0
-        - env:
-            VA: A1
-      - - env:
-            VB: B0
-        - env:
-            VB: B1
-        - env:
-            VB: B2
-      - - env:
-            VC: C0
-        - env:
-            VC: C1
-    tasks:
-      - script: echo "$VA $VB $VC"
-  b:
-    pre:
-      - a
-    tasks:
-      - script: echo "b"
-  c:
-    pre:
-      - b
-    tasks:
-      - script: echo "c"
-
-  minimal:
-    tasks:
-      - script: echo "minimal"
-
-  error:
-    tasks:
-      - script: exit 1
-
-  graph:
-    pre:
-      - minimal
-      - a
-      - b
-    tasks: []
-
-  test:
-    matrix:
-      - - env:
-            OVERRIDE_ENV_VAR_0: new e0
-    tasks:
-      - env:
-          OVERRIDE_ENV_VAR_1: new e1
-        script: |
-          set -e
-
-          echo "$DEFAULT_ENV_VAR"
-          sleep 1
-          echo "$OVERRIDE_ENV_VAR_0"
-          sleep 1
-          echo "$OVERRIDE_ENV_VAR_1"
-          sleep 1
-          echo "A"
-          sleep 1
-          echo "B"
-          sleep 1
-          echo "C"
-          sleep 1
-          echo "D"
-          sleep 1
-          echo "{{ args.test }}" # this will require an argument to be passed via '-a args.test="some-argument"'
-          sleep 1
-          unknown-command
-          echo "too far!"
-
-```
-
 ## Graph execution
 
-Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduped so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.\
+Execute command chains as follows.
+
+```bash
+neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oyaml | neomake execute -fyaml
+```
+
+Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduplicated so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.\
 Let's assume the following graph of task chains and their dependencies:
 
-`neomake -e ls`
+`neomake ls`
 
-```
+```yaml
 ---
 chains:
   - name: A
@@ -162,9 +61,9 @@ chains:
 
 In words, `A` and `B` are nodes without any prerequisites whereas `C` depends on `A` and `D` depends on `B`. Notably, `E` depends on both `A` and `D`. This means that `E` also transiently depends on any dependencies of `A` (`{}`) and `D` (`{B}`).
 
-A CLI call such as `neomake -e describe -cC -cE` would render the following task executions.
+A CLI call such as `neomake describe -cC -cE` would render the following task executions.
 
-```
+```yaml
 ---
 stages:
   - - A
@@ -173,7 +72,7 @@ stages:
   - - E
 ```
 
-Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. `neomake` is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.
+Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. Tasks inside a stage are run in parallel (in an OS thread pool of the size given to the `worker` argument). `neomake` is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.
 
 ## Why
 
@@ -184,3 +83,17 @@ Why would someone build a task runner if there's many alternatives out there? A 
 * `pyinvoke` (`tasks.py`) - executing tasks from within python scripts
 
 I built this utility because all of the alternatives I have tried, including the ones listed above were lacking some features. I was basically looking for a subset of the functionality which the GitLab pipelines provide incl. features such as matrix builds and more. Especially things like invoking commands in many locations, parallelizing tasks, easy parameterization and a few more.
+
+## Example configuration
+
+```yaml
+<-- ../res/templates/max.yaml -->
+```
+
+For more examples, call `neomake config init --help` or look at the schema with `neomake config schema`.
+
+## Schema
+
+```json
+<-- ./schema.json -->
+```

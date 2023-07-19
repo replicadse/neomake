@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    io::Read,
     iter::FromIterator,
     result::Result,
     str::FromStr,
@@ -7,10 +8,10 @@ use std::{
 
 use clap::{Arg, ArgAction};
 
-use crate::error::Error;
+use crate::{error::Error, model::Execution};
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum Privilege {
+pub(crate) enum Privilege {
     Normal,
     Experimental,
 }
@@ -22,32 +23,105 @@ pub(crate) struct CallArgs {
 }
 
 impl CallArgs {
-    pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn validate(&self) -> Result<(), crate::error::Error> {
         if self.privileges == Privilege::Experimental {
             return Ok(());
         }
 
         match &self.command {
-            // | Command::Describe { .. } => Err(Box::new(Error::ExperimentalCommand)),
+            // | Command::Plan { .. } => Err(Box::new(Error::ExperimentalCommand)),
             | _ => Ok(()),
         }
     }
 }
 
 #[derive(Debug)]
-pub enum ManualFormat {
+pub(crate) enum ManualFormat {
     Manpages,
     Markdown,
 }
 
 #[derive(Debug)]
-pub enum Format {
-    JSON,
+pub(crate) enum Format {
+    JSON { pretty: bool },
     YAML,
+    TOML,
+    RON { pretty: bool },
+}
+
+impl Format {
+    pub(crate) fn serialize<T: serde::Serialize>(&self, arg: &T) -> Result<String, crate::error::Error> {
+        match self {
+            | crate::args::Format::YAML => Ok(serde_yaml::to_string(arg)?),
+            | crate::args::Format::JSON { pretty } => {
+                if *pretty {
+                    Ok(serde_json::to_string_pretty(arg)?)
+                } else {
+                    Ok(serde_json::to_string(arg)?)
+                }
+            },
+            | crate::args::Format::TOML => Ok(toml::to_string(arg)?),
+            | crate::args::Format::RON { pretty } => {
+                if *pretty {
+                    Ok(ron::ser::to_string_pretty(
+                        arg,
+                        ron::ser::PrettyConfig::new()
+                            .compact_arrays(true)
+                            .enumerate_arrays(true)
+                            .new_line("\n".to_owned()), // no windows on my turf
+                    )?)
+                } else {
+                    Ok(ron::ser::to_string(arg)?)
+                }
+            },
+        }
+    }
+
+    pub(crate) fn deserialize<T: serde::de::DeserializeOwned>(&self, s: &str) -> Result<T, crate::error::Error> {
+        match self {
+            | crate::args::Format::YAML => Ok(serde_yaml::from_str::<T>(s)?),
+            | crate::args::Format::JSON { .. } => Ok(serde_json::from_str::<T>(s)?),
+            | crate::args::Format::TOML => Ok(toml::from_str::<T>(s)?),
+            | crate::args::Format::RON { .. } => Ok(ron::from_str::<T>(s)?),
+        }
+    }
+
+    fn from_arg(arg: &str) -> Result<Self, crate::error::Error> {
+        match arg {
+            | "yaml" => Ok(Format::YAML),
+            | "json" => Ok(Format::JSON { pretty: false }),
+            | "json+p" => Ok(Format::JSON { pretty: true }),
+            | "toml" => Ok(Format::TOML),
+            | "ron" => Ok(Format::RON { pretty: false }),
+            | "ron+p" => Ok(Format::RON { pretty: true }),
+            | _ => Err(Error::Argument("output".to_owned())),
+        }
+    }
 }
 
 #[derive(Debug)]
-pub enum Command {
+pub(crate) enum InitTemplate {
+    Min,
+    Max,
+}
+
+impl InitTemplate {
+    pub(crate) fn render(&self) -> String {
+        match self {
+            | InitTemplate::Min => include_str!("../res/templates/min.yaml").to_owned(),
+            | InitTemplate::Max => include_str!("../res/templates/max.yaml").to_owned(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum InitOutput {
+    Stdout,
+    File(String),
+}
+
+#[derive(Debug)]
+pub(crate) enum Command {
     Manual {
         path: String,
         format: ManualFormat,
@@ -56,12 +130,22 @@ pub enum Command {
         path: String,
         shell: clap_complete::Shell,
     },
-    Init,
-    Run {
+    ConfigInit {
+        template: InitTemplate,
+        output: InitOutput,
+    },
+    ConfigSchema,
+    Execute {
+        plan: Execution,
+        workers: usize,
+        prefix: String,
+        silent: bool,
+    },
+    Plan {
         config: String,
         chains: HashSet<String>,
         args: HashMap<String, String>,
-        workers: usize,
+        format: Format,
     },
     List {
         config: String,
@@ -77,10 +161,10 @@ pub enum Command {
 pub(crate) struct ClapArgumentLoader {}
 
 impl ClapArgumentLoader {
-    pub fn root_command() -> clap::Command {
+    pub(crate) fn root_command() -> clap::Command {
         clap::Command::new("neomake")
             .version(env!("CARGO_PKG_VERSION"))
-            .about("A rusty text templating application for CLIs.")
+            .about("A makefile alternative / task runner.")
             .author("replicadse <aw@voidpointergroup.com>")
             .propagate_version(true)
             .subcommand_required(true)
@@ -114,12 +198,66 @@ impl ClapArgumentLoader {
                     ),
             )
             .subcommand(
-                clap::Command::new("init").about("Initializes a new default configuration in the current folder."),
+                clap::Command::new("config")
+                    .about("Config related subcommands.")
+                    .subcommand(
+                        clap::Command::new("init")
+                            .about("Initializes a new default configuration in the current folder.")
+                            .arg(
+                                Arg::new("template")
+                                    .short('t')
+                                    .long("template")
+                                    .help("The template to init with.")
+                                    .default_value("min")
+                                    .value_parser(["min", "max"]),
+                            )
+                            .arg(
+                                Arg::new("output")
+                                    .short('o')
+                                    .long("output")
+                                    .help("The file to render the output to. \"-\" renders to STDOUT.")
+                                    .default_value("./.neomake.yaml"),
+                            ),
+                    )
+                    .subcommand(clap::Command::new("schema").about("Renders the schema for the config.")),
             )
             .subcommand(
-                clap::Command::new("run")
-                    .about("Runs task chains.")
-                    .visible_aliases(&["r", "exec", "x"])
+                clap::Command::new("execute")
+                    .about("Executes task chains.")
+                    .visible_aliases(&["exec", "x"])
+                    .arg(
+                        Arg::new("format")
+                            .short('f')
+                            .long("format")
+                            .help("The format of the execution plan.")
+                            .default_value("-"),
+                    )
+                    .arg(
+                        Arg::new("workers")
+                            .short('w')
+                            .long("workers")
+                            .help("Defines how many worker threads are used for tasks that can be executed in parllel.")
+                            .default_value("1"),
+                    )
+                    .arg(
+                        Arg::new("prefix")
+                            .short('p')
+                            .long("prefix")
+                            .help("The prefix to use for output to STDOUT.")
+                            .default_value("==> "),
+                    )
+                    .arg(
+                        Arg::new("silent")
+                            .short('s')
+                            .long("silent")
+                            .help("Disables STDOUT output of child processes.")
+                            .num_args(0),
+                    ),
+            )
+            .subcommand(
+                clap::Command::new("plan")
+                    .about("Plans an execution of task chains.")
+                    .visible_aliases(&["r"])
                     .arg(
                         Arg::new("config")
                             .short('f')
@@ -142,17 +280,18 @@ impl ClapArgumentLoader {
                             .help("An argument to the chain."),
                     )
                     .arg(
-                        Arg::new("workers")
-                            .short('w')
-                            .long("workers")
-                            .help("Defines how many worker threads are used for tasks that can be executed in parllel.")
-                            .default_value("1"),
+                        Arg::new("output")
+                            .short('o')
+                            .long("output")
+                            .help("The output format.")
+                            .default_value("yaml")
+                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
                     ),
             )
             .subcommand(
                 clap::Command::new("describe")
-                    .about("Describes the execution graph for a given task chain configuration.")
-                    .visible_aliases(&["d", "desc"])
+                    .about("Describe the execution graph for given task chain configuration(s).")
+                    .visible_aliases(&["p"])
                     .arg(
                         Arg::new("config")
                             .short('f')
@@ -173,7 +312,7 @@ impl ClapArgumentLoader {
                             .long("output")
                             .help("The output format.")
                             .default_value("yaml")
-                            .value_parser(["yaml", "json"]),
+                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
                     ),
             )
             .subcommand(
@@ -193,12 +332,12 @@ impl ClapArgumentLoader {
                             .long("output")
                             .help("The output format.")
                             .default_value("yaml")
-                            .value_parser(["yaml", "json"]),
+                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
                     ),
             )
     }
 
-    pub fn load() -> Result<CallArgs, Box<dyn std::error::Error>> {
+    pub(crate) fn load() -> Result<CallArgs, crate::error::Error> {
         let command = Self::root_command().get_matches();
 
         let privileges = if command.get_flag("experimental") {
@@ -221,7 +360,7 @@ impl ClapArgumentLoader {
                 format: match subc.get_one::<String>("format").unwrap().as_str() {
                     | "manpages" => ManualFormat::Manpages,
                     | "markdown" => ManualFormat::Markdown,
-                    | _ => return Err(Box::new(Error::Argument("unknown format".into()))),
+                    | _ => return Err(Error::Argument("unknown format".into())),
                 },
             }
         } else if let Some(subc) = command.subcommand_matches("autocomplete") {
@@ -229,9 +368,25 @@ impl ClapArgumentLoader {
                 path: subc.get_one::<String>("out").unwrap().into(),
                 shell: clap_complete::Shell::from_str(subc.get_one::<String>("shell").unwrap().as_str()).unwrap(),
             }
-        } else if let Some(..) = command.subcommand_matches("init") {
-            Command::Init
-        } else if let Some(x) = command.subcommand_matches("run") {
+        } else if let Some(x) = command.subcommand_matches("config") {
+            if let Some(x) = x.subcommand_matches("init") {
+                Command::ConfigInit {
+                    template: match x.get_one::<String>("template").unwrap().as_str() {
+                        | "min" => InitTemplate::Min,
+                        | "max" => InitTemplate::Max,
+                        | _ => return Err(Error::Argument("unknown template".into())),
+                    },
+                    output: match x.get_one::<String>("output").unwrap().as_str() {
+                        | "-" => InitOutput::Stdout,
+                        | s => InitOutput::File(s.to_owned()),
+                    },
+                }
+            } else if let Some(_) = x.subcommand_matches("schema") {
+                Command::ConfigSchema
+            } else {
+                return Err(Error::UnknownCommand);
+            }
+        } else if let Some(x) = command.subcommand_matches("execute") {
             let mut args_map: HashMap<String, String> = HashMap::new();
             if let Some(args) = x.get_many::<String>("arg") {
                 for v_arg in args {
@@ -240,37 +395,45 @@ impl ClapArgumentLoader {
                 }
             }
 
-            Command::Run {
+            let format = Format::from_arg(x.get_one::<String>("format").unwrap().as_str())?;
+            let mut plan = String::new();
+            std::io::stdin().read_to_string(&mut plan)?;
+
+            Command::Execute {
+                plan: format.deserialize::<Execution>(&plan)?,
+                workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap())
+                    .or(Err(Error::Generic("could not parse string".to_owned())))?,
+                prefix: x.get_one::<String>("prefix").unwrap().to_owned(),
+                silent: x.get_flag("silent"),
+            }
+        } else if let Some(x) = command.subcommand_matches("plan") {
+            let mut args_map: HashMap<String, String> = HashMap::new();
+            if let Some(args) = x.get_many::<String>("arg") {
+                for v_arg in args {
+                    let spl: Vec<&str> = v_arg.splitn(2, "=").collect();
+                    args_map.insert(spl[0].to_owned(), spl[1].to_owned());
+                }
+            }
+
+            Command::Plan {
                 config: std::fs::read_to_string(x.get_one::<String>("config").unwrap())?,
                 chains: parse_chains(x)?,
                 args: args_map,
-                workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap())?,
+                format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else if let Some(x) = command.subcommand_matches("list") {
-            let format = match x.get_one::<String>("output").unwrap().as_str() {
-                | "yaml" => Format::YAML,
-                | "json" => Format::JSON,
-                | _ => Err(Error::Argument("output".to_owned()))?,
-            };
-
             Command::List {
                 config: std::fs::read_to_string(x.get_one::<String>("config").unwrap())?,
-                format,
+                format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else if let Some(x) = command.subcommand_matches("describe") {
-            let format = match x.get_one::<String>("output").unwrap().as_str() {
-                | "yaml" => Format::YAML,
-                | "json" => Format::JSON,
-                | _ => Err(Error::Argument("output".to_owned()))?,
-            };
-
             Command::Describe {
                 config: std::fs::read_to_string(x.get_one::<String>("config").unwrap())?,
                 chains: parse_chains(x)?,
-                format,
+                format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else {
-            return Err(Box::new(Error::UnknownCommand));
+            return Err(Error::UnknownCommand);
         };
 
         let callargs = CallArgs {

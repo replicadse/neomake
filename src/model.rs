@@ -8,39 +8,59 @@ use interactive_process::InteractiveProcess;
 use itertools::Itertools;
 use threadpool::ThreadPool;
 
-use crate::{config::Shell, error::Error, output};
+use crate::{
+    config::Shell,
+    error::Error,
+    output::{self, Controller},
+};
 
-struct ExecVars {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Task {
     cmd: String,
     env: HashMap<String, String>,
     workdir: Option<String>,
     shell: Shell,
 }
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Matrix {
+    tasks: Vec<Task>,
+}
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Chain {
+    matrix: Vec<Matrix>,
+}
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Stage {
+    chains: Vec<Chain>,
+}
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct Execution {
+    stages: Vec<Stage>,
+}
 
 pub(crate) struct Config {
-    pub output: Arc<Mutex<output::Controller>>,
     pub chains: HashMap<String, crate::config::Chain>,
     pub env: HashMap<String, String>,
 }
 
 impl Config {
-    pub fn load_from_str(data: &str) -> Result<Self, Error> {
+    pub fn load(data: &str) -> Result<Self, Error> {
         #[derive(Debug, serde::Deserialize)]
-        struct WithVersion {
+        struct Versioned {
             version: String,
         }
-        let v: WithVersion = serde_yaml::from_str(data)?;
+        let v = serde_yaml::from_str::<Versioned>(data)?;
 
-        if v.version != "0.3" {
+        if v.version != "0.5" {
             Err(Error::VersionCompatibility(format!(
-                "config version {:?} is incompatible with this CLI version",
-                v
+                "config version {} is incompatible with this CLI version {}",
+                v.version,
+                env!("CARGO_PKG_VERSION")
             )))?
         }
 
         let cfg: crate::config::Config = serde_yaml::from_str(&data)?;
         Ok(Self {
-            output: Arc::new(Mutex::new(output::Controller::new("==> ".to_owned()))),
             chains: cfg.chains,
             env: if let Some(e) = cfg.env {
                 e
@@ -50,43 +70,40 @@ impl Config {
         })
     }
 
-    pub async fn execute(
+    pub async fn render_exec(
         &self,
         exec_chains: &HashSet<String>,
         args: &HashMap<String, String>,
-        workers: usize,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<Execution, Error> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
         let arg_vals = self.build_args(args)?;
-
         let stages = self.determine_order(exec_chains)?;
 
+        let mut res = Execution { stages: vec![] };
+
         for stage in stages {
-            let pool = ThreadPool::new(workers);
-            let (tx, rx) = std::sync::mpsc::channel::<Result<(), Error>>();
-
-            let mut execs = Vec::<Vec<ExecVars>>::new(); // chains + tasks -> parallelize on l0
-
-            for tcn in stage {
-                let tc = &self.chains[&tcn];
+            let mut rendered_stage = Stage { chains: vec![] };
+            for chain in stage {
+                let mut rendered_chain = Chain { matrix: vec![] }; // chains + tasks -> parallelize on l0
+                let chain_def = &self.chains[&chain];
 
                 let matrix_entry_default = crate::config::MatrixEntry { ..Default::default() };
 
-                let matrix_cp = if let Some(matrix) = &tc.matrix {
+                let matrix_cp = if let Some(matrix) = &chain_def.matrix {
                     matrix.iter().multi_cartesian_product().collect::<Vec<_>>()
                 } else {
                     vec![vec![&matrix_entry_default]]
                 };
 
                 for mat in matrix_cp {
-                    let mut task_execs = Vec::<ExecVars>::new();
-                    for task in &tc.tasks {
+                    let mut rendered_matrix = Matrix { tasks: vec![] };
+                    for task in &chain_def.tasks {
                         let rendered_cmd = hb.render_template(&task.script, &arg_vals)?;
 
                         let workdir = if let Some(workdir) = &task.workdir {
                             Some(workdir.to_owned())
-                        } else if let Some(workdir) = &tc.workdir {
+                        } else if let Some(workdir) = &chain_def.workdir {
                             Some(workdir.to_owned())
                         } else {
                             None
@@ -94,7 +111,7 @@ impl Config {
 
                         let shell = if let Some(shell) = &task.shell {
                             shell.to_owned()
-                        } else if let Some(shell) = &tc.shell {
+                        } else if let Some(shell) = &chain_def.shell {
                             shell.to_owned()
                         } else {
                             crate::config::Shell {
@@ -103,7 +120,7 @@ impl Config {
                             }
                         };
 
-                        let mut exec_vars = ExecVars {
+                        let mut rendered_task = Task {
                             cmd: rendered_cmd,
                             env: HashMap::<String, String>::new(),
                             workdir,
@@ -118,75 +135,25 @@ impl Config {
                         }
 
                         let self_env = Some(self.env.clone());
-                        for env in vec![&self_env, &tc.env, &combined_matrix_env, &task.env] {
+                        for env in vec![&self_env, &chain_def.env, &combined_matrix_env, &task.env] {
                             if let Some(m) = env {
-                                exec_vars.env.extend(m.clone());
+                                rendered_task.env.extend(m.clone());
                             }
                         }
 
-                        task_execs.push(exec_vars);
+                        rendered_matrix.tasks.push(rendered_task);
                     }
-                    execs.push(task_execs);
+                    rendered_chain.matrix.push(rendered_matrix);
                 }
+                rendered_stage.chains.push(rendered_chain);
             }
-
-            let signal_cnt = execs.len();
-            for e in execs {
-                let output_thread = self.output.clone();
-                let tx_thread = tx.clone();
-                pool.execute(move || {
-                    let res = move || -> Result<(), Box<dyn std::error::Error>> {
-                        for exec_vars in e {
-                            let mut cmd_proc = std::process::Command::new(&exec_vars.shell.program);
-                            cmd_proc.args(exec_vars.shell.args);
-                            cmd_proc.envs(exec_vars.env);
-                            if let Some(w) = exec_vars.workdir {
-                                cmd_proc.current_dir(w);
-                            }
-                            cmd_proc.arg(&exec_vars.cmd);
-
-                            let loc_out = output_thread.clone();
-                            let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
-                                | Ok(v) => {
-                                    let mut lock = loc_out.lock().unwrap();
-                                    lock.append(v);
-                                    lock.draw().unwrap();
-                                },
-                                | Err(..) => {},
-                            })?
-                            .wait()?;
-                            if let Some(code) = exit_status.code() {
-                                if code != 0 {
-                                    let err_msg = format!("command \"{}\" failed with code {}", &exec_vars.cmd, code,);
-                                    return Err(Box::new(Error::ChildProcess(err_msg)));
-                                }
-                            }
-                        }
-                        Ok(())
-                    }();
-                    match res {
-                        | Ok(..) => tx_thread.send(Ok(())).expect("send failed"),
-                        | Err(e) => tx_thread
-                            // error formatting should be improved
-                            .send(Err(Error::Generic(format!("{:?}", e))))
-                            .expect("send failed"),
-                    }
-                });
-            }
-            let errs = rx
-                .iter()
-                .take(signal_cnt)
-                .filter(|x| x.is_err())
-                .map(|x| x.expect_err("expect"))
-                .collect::<Vec<_>>();
-            if errs.len() > 0 {
-                return Err(Box::new(Error::Many(errs)));
-            }
+            res.stages.push(rendered_stage);
         }
-        Ok(())
+
+        Ok(res)
     }
 
-    pub async fn list(&self, format: crate::args::Format) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn list(&self, format: &crate::args::Format) -> Result<(), Error> {
         #[derive(Debug, serde::Serialize)]
         struct Output {
             chains: Vec<OutputChain>,
@@ -209,19 +176,12 @@ impl Config {
         };
         info.chains.sort_by(|a, b| a.name.cmp(&b.name));
 
-        match format {
-            | crate::args::Format::YAML => println!("{}", serde_yaml::to_string(&info)?),
-            | crate::args::Format::JSON => println!("{}", serde_json::to_string(&info)?),
-        };
+        println!("{}", format.serialize(&info)?);
 
         Ok(())
     }
 
-    pub async fn describe(
-        &self,
-        chains: HashSet<String>,
-        format: crate::args::Format,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn plan(&self, chains: &HashSet<String>, format: &crate::args::Format) -> Result<(), Error> {
         let structure = self.determine_order(&chains)?;
 
         #[derive(Debug, serde::Serialize)]
@@ -235,10 +195,7 @@ impl Config {
                 .push(s.iter().map(|s| s.to_owned()).into_iter().collect::<Vec<_>>());
         }
 
-        match format {
-            | crate::args::Format::JSON => println!("{}", serde_json::to_string(&info)?),
-            | crate::args::Format::YAML => println!("{}", serde_yaml::to_string(&info)?),
-        };
+        println!("{}", format.serialize(&info)?);
 
         Ok(())
     }
@@ -332,5 +289,85 @@ impl Config {
         }
 
         Ok(result)
+    }
+}
+
+pub(crate) struct ExecEngine {
+    pub output: Arc<Mutex<output::Controller>>,
+}
+
+impl ExecEngine {
+    pub fn new(prefix: String, silent: bool) -> Self {
+        Self {
+            output: Arc::new(Mutex::new(Controller::new(
+                !silent,
+                prefix,
+                Box::new(std::io::stdout()),
+            ))),
+        }
+    }
+
+    pub async fn execute(&self, plan: Execution, workers: usize) -> Result<(), Error> {
+        for stage in plan.stages {
+            let signal_cnt = stage.chains.iter().map(|c| c.matrix.len()).sum();
+            let pool = ThreadPool::new(workers);
+            let (tx, rx) = std::sync::mpsc::channel::<Result<(), Error>>();
+
+            for chain in stage.chains {
+                for matrix in chain.matrix {
+                    let output_thread = self.output.clone();
+                    let tx_thread = tx.clone();
+
+                    // executes matrix entry
+                    pool.execute(move || {
+                        let res = move || -> Result<(), Box<dyn std::error::Error>> {
+                            for task in matrix.tasks {
+                                let mut cmd_proc = std::process::Command::new(&task.shell.program);
+                                cmd_proc.args(task.shell.args);
+                                cmd_proc.envs(task.env);
+                                if let Some(w) = task.workdir {
+                                    cmd_proc.current_dir(w);
+                                }
+                                cmd_proc.arg(&task.cmd);
+
+                                let loc_out = output_thread.clone();
+                                let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
+                                    | Ok(v) => {
+                                        let mut lock = loc_out.lock().unwrap();
+                                        lock.print(&v).expect("could not print");
+                                    },
+                                    | Err(..) => {},
+                                })?
+                                .wait()?;
+                                if let Some(code) = exit_status.code() {
+                                    if code != 0 {
+                                        let err_msg = format!("command \"{}\" failed with code {}", &task.cmd, code);
+                                        return Err(Box::new(Error::ChildProcess(err_msg)));
+                                    }
+                                }
+                            }
+                            Ok(())
+                        }();
+                        match res {
+                            | Ok(..) => tx_thread.send(Ok(())).expect("send failed"),
+                            | Err(e) => tx_thread
+                                    // error formatting should be improved
+                                    .send(Err(Error::Generic(format!("{:?}", e))))
+                                    .expect("send failed"),
+                        }
+                    });
+                }
+            }
+            let errs = rx
+                .iter()
+                .take(signal_cnt)
+                .filter(|x| x.is_err())
+                .map(|x| x.expect_err("expect"))
+                .collect::<Vec<_>>();
+            if errs.len() > 0 {
+                return Err(Error::Many(errs));
+            }
+        }
+        Ok(())
     }
 }

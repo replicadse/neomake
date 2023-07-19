@@ -14,12 +14,6 @@ readme = "docs/README.md"
 [features]
   default = []
 
-[profile]
-  [dev]
-    opt-level = 0
-  [release]
-    opt-level = 3
-
 [dependencies]
 clap = "^4.1.8"
 clap_complete = "4.1.4"
@@ -38,6 +32,9 @@ crossterm = "0.25.0"
 thiserror = "^1.0"
 itertools = "0.10.5"
 threadpool = "^1.8"
+schemars = "0.8.12"
+toml = "0.7.6"
+ron = "0.8.0"
 
 [dev-dependencies]
 rusty-hook = "0.11.2"

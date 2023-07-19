@@ -1,0 +1,76 @@
+version: "0.5"
+
+env:
+  ENV_GLOBAL: "val_global"
+
+chains:
+  alpha: # minimal example
+    tasks:
+      - script: |
+          set -e
+          printf "alpha"
+  bravo: # with predecessor
+    pre:
+      - alpha
+    tasks:
+      - script: |
+          set -e
+          printf "bravo"
+  charlie: # environment variables
+    env:
+      ENV_CHAIN: val_chain
+    matrix:
+      - - env:
+            ENV_MATRIX: val_matrix
+    tasks:
+      - env:
+          ENV_TASK: val_task
+        script: |
+          set -e
+          printf "$ENV_GLOBAL\n"
+          printf "$ENV_CHAIN\n"
+          printf "$ENV_MATRIX\n"
+          printf "$ENV_TASK\n"
+
+  delta: # matrix
+    matrix:
+      - - env:
+            X: "0"
+        - env:
+            X: "1"
+      - - env:
+            Y: "0"
+        - env:
+            Y: "1"
+    tasks:
+      - script: |
+          set -e
+          printf "$X$Y\n"
+
+  echo: # workdir
+    workdir: "./res"
+    tasks:
+      - script: |
+          set -e
+          ls -al1 .
+      - workdir: ./test
+        script: |
+          set -e
+          ls -al1 .
+
+  foxtrot: # shell
+    shell:
+      program: "/bin/bash"
+      args:
+        - "-c"
+    tasks:
+      - script: |
+          set -e
+          printf "$0"
+      - shell:
+          program: "/bin/sh"
+          args:
+            - "-c"
+        script: |
+          set -e
+          printf "$0"

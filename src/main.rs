@@ -3,7 +3,8 @@ include!("check_features.rs");
 use std::path::PathBuf;
 use std::result::Result;
 
-use args::ManualFormat;
+use args::{InitOutput, ManualFormat};
+use model::ExecEngine;
 
 pub mod args;
 pub mod config;
@@ -13,7 +14,7 @@ pub mod output;
 pub mod reference;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), crate::error::Error> {
     let cmd = crate::args::ClapArgumentLoader::load()?;
     cmd.validate()?;
 
@@ -37,29 +38,105 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             reference::build_shell_completion(&out_path, &shell)?;
             Ok(())
         },
-        | crate::args::Command::Init => {
-            std::fs::write("./.neomake.yaml", crate::config::default_config())?;
+        | crate::args::Command::ConfigInit { template, output } => {
+            match output {
+                | InitOutput::File(f) => std::fs::write(f, template.render())?,
+                | InitOutput::Stdout => print!("{}", template.render()),
+            };
             Ok(())
         },
-        | crate::args::Command::Run {
+        | crate::args::Command::ConfigSchema => {
+            print!(
+                "{}",
+                serde_json::to_string_pretty(&schemars::schema_for!(crate::config::Config)).unwrap()
+            );
+            Ok(())
+        },
+        | crate::args::Command::Execute {
+            plan,
+            workers,
+            prefix,
+            silent,
+        } => {
+            let exec_engine = ExecEngine::new(prefix, silent);
+            exec_engine.execute(plan, workers).await?;
+            Ok(())
+        },
+        | crate::args::Command::Plan {
             config,
             chains,
             args,
-            workers,
+            format,
         } => {
-            let m = model::Config::load_from_str(&config)?;
-            m.execute(&chains, &args, workers).await?;
+            let m = model::Config::load(&config)?;
+            let x = m.render_exec(&chains, &args).await?;
+            print!("{}", format.serialize(&x)?);
             Ok(())
         },
         | crate::args::Command::List { config, format } => {
-            let m = model::Config::load_from_str(&config)?;
-            m.list(format).await?;
+            let m = model::Config::load(&config)?;
+            m.list(&format).await?;
             Ok(())
         },
         | crate::args::Command::Describe { config, chains, format } => {
-            let m = model::Config::load_from_str(&config)?;
-            m.describe(chains, format).await?;
+            let m = model::Config::load(&config)?;
+            m.plan(&chains, &format).await?;
             Ok(())
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use interactive_process::InteractiveProcess;
+
+    // const CONFIG_PATH: &'static str = "./test/.neomake.yaml";
+
+    fn exec(command: &str) -> Result<String, crate::error::Error> {
+        let mut cmd_proc = std::process::Command::new("sh");
+        cmd_proc.arg("-c");
+        cmd_proc.arg(command);
+
+        let output = Arc::new(Mutex::new(Vec::<String>::new()));
+        let output_fn = output.clone();
+
+        let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
+            | Ok(v) => {
+                output_fn.lock().unwrap().push(v);
+            },
+            | Err(e) => {
+                output_fn.lock().unwrap().push(e.to_string());
+            },
+        })?
+        .wait()?;
+
+        let output_joined = output.lock().unwrap().join("\n");
+        match exit_status.code().unwrap() {
+            | 0 => Ok(output_joined),
+            | _ => Err(crate::error::Error::Generic(output_joined)),
+        }
+    }
+
+    #[test]
+    fn test_config_init_min() {
+        assert!(
+            include_str!("../res/templates/min.yaml")
+                == format!("{}\n", exec("cargo run -- config init -tmin -o-").unwrap())
+        )
+    }
+
+    #[test]
+    fn test_config_init_max() {
+        assert!(
+            include_str!("../res/templates/max.yaml")
+                == format!("{}\n", exec("cargo run -- config init -tmax -o-").unwrap())
+        )
+    }
+
+    #[test]
+    fn test_smoke_config_schema() {
+        exec("cargo run -- config init -tmax -o-").unwrap();
     }
 }

@@ -1,0 +1,9 @@
+version: "0.5"
+
+chains:
+  minimal:
+    tasks:
+      - script: |
+          set -e
+          printf "first line"
+          printf "second line"

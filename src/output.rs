@@ -3,28 +3,29 @@ use std::{error::Error, io::Write, result::Result};
 use crossterm::{style::Print, QueueableCommand};
 
 pub(crate) struct Controller {
-    pending_lines: Vec<String>,
+    enabled: bool,
     prefix: String,
+    desination: Box<dyn Write + Send + Sync>,
 }
 
 impl Controller {
-    pub fn new(prefix: String) -> Self {
+    pub fn new(enabled: bool, prefix: String, desination: Box<dyn Write + Sync + Send>) -> Self {
         Self {
+            enabled,
             prefix,
-            pending_lines: vec![],
+            desination,
         }
     }
 
-    pub fn append(&mut self, s: String) {
-        self.pending_lines.push(s);
-    }
-
-    pub fn draw(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut stdout = std::io::stdout();
-        for l in self.pending_lines.drain(..) {
-            stdout.queue(Print(format!("{}{}\n", &self.prefix, l))).unwrap();
+    pub fn print(&mut self, s: &str) -> Result<(), Box<dyn Error>> {
+        if !self.enabled {
+            return Ok(());
         }
-        stdout.flush()?;
+
+        self.desination
+            .queue(Print(format!("{}{}\n", &self.prefix, s)))
+            .unwrap();
+        self.desination.flush()?;
         Ok(())
     }
 }

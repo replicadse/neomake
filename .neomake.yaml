@@ -1,4 +1,4 @@
-version: 0.3
+version: "0.5"
 
 chains:
   build:
@@ -16,7 +16,7 @@ chains:
     tasks:
       - script: |
           set -e
-          cargo test
+          cargo test --no-fail-fast
 
   "hook:pre-push":
     pre:
