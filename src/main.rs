@@ -37,7 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             reference::build_shell_completion(&out_path, &shell)?;
             Ok(())
         },
-        | crate::args::Command::Init => init().await,
+        | crate::args::Command::Init => {
+            std::fs::write("./.neomake.yaml", crate::config::default_config())?;
+            Ok(())
+        },
         | crate::args::Command::Run {
             config,
             chains,
@@ -59,9 +62,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         },
     }
-}
-
-async fn init() -> Result<(), Box<dyn std::error::Error>> {
-    std::fs::write("./.neomake.yaml", crate::config::default_config())?;
-    Ok(())
 }
