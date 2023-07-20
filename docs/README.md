@@ -27,7 +27,10 @@
 
 `neomake` is distributed through `cargo`.
 
-1) `cargo install neomake`
+1) For the latest stable version:\
+  `cargo install neomake`
+2) For the bleeding edge master branch:\
+  `cargo install --git https://github.com/replicadse/neomake.git`
 
 ## Graph execution
 
