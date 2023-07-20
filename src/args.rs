@@ -8,7 +8,7 @@ use std::{
 
 use clap::{Arg, ArgAction};
 
-use crate::{error::Error, model::Execution};
+use crate::{error::Error, model::ExecutionPlan};
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Privilege {
@@ -132,30 +132,30 @@ pub(crate) enum Command {
         path: String,
         shell: clap_complete::Shell,
     },
-    ConfigInit {
+    WorkflowInit {
         template: InitTemplate,
         output: InitOutput,
     },
-    ConfigSchema,
+    WorkflowSchema,
     Execute {
-        plan: Execution,
+        plan: ExecutionPlan,
         workers: usize,
         prefix: String,
         silent: bool,
     },
     Plan {
-        config: String,
-        chains: HashSet<String>,
+        workflow: String,
+        nodes: HashSet<String>,
         args: HashMap<String, String>,
         format: Format,
     },
     List {
-        config: String,
+        workflow: String,
         format: Format,
     },
     Describe {
-        config: String,
-        chains: HashSet<String>,
+        workflow: String,
+        nodes: HashSet<String>,
         format: Format,
     },
 }
@@ -173,7 +173,7 @@ impl ClapArgumentLoader {
             .args([Arg::new("experimental")
                 .short('e')
                 .long("experimental")
-                .help("enables experimental features")
+                .help("Enables experimental features.")
                 .num_args(0)])
             .subcommand(
                 clap::Command::new("man")
@@ -200,11 +200,11 @@ impl ClapArgumentLoader {
                     ),
             )
             .subcommand(
-                clap::Command::new("config")
-                    .about("Config related subcommands.")
+                clap::Command::new("workflow")
+                    .about("Workflow related subcommands.")
                     .subcommand(
                         clap::Command::new("init")
-                            .about("Initializes a new default configuration in the current folder.")
+                            .about("Initializes a new template workflow.")
                             .arg(
                                 Arg::new("template")
                                     .short('t')
@@ -221,11 +221,44 @@ impl ClapArgumentLoader {
                                     .default_value("./.neomake.yaml"),
                             ),
                     )
-                    .subcommand(clap::Command::new("schema").about("Renders the schema for the config.")),
+                    .subcommand(clap::Command::new("schema").about("Renders the workflow schema to STDOUT.")),
+            )
+            .subcommand(
+                clap::Command::new("plan")
+                    .about("Creates an execution plan.")
+                    .visible_aliases(&["p"])
+                    .arg(
+                        Arg::new("workflow")
+                            .long("workflow")
+                            .help("The workflow file to use.")
+                            .default_value("./.neomake.yaml"),
+                    )
+                    .arg(
+                        Arg::new("node")
+                            .short('n')
+                            .long("node")
+                            .action(ArgAction::Append)
+                            .help("Adding a node to the plan."),
+                    )
+                    .arg(
+                        Arg::new("arg")
+                            .short('a')
+                            .long("arg")
+                            .action(ArgAction::Append)
+                            .help("Specifies a value for handlebars placeholders."),
+                    )
+                    .arg(
+                        Arg::new("output")
+                            .short('o')
+                            .long("output")
+                            .help("Specifies the output format.")
+                            .default_value("yaml")
+                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
+                    ),
             )
             .subcommand(
                 clap::Command::new("execute")
-                    .about("Executes task chains.")
+                    .about("Executes an execution plan.")
                     .visible_aliases(&["exec", "x"])
                     .arg(
                         Arg::new("format")
@@ -238,75 +271,40 @@ impl ClapArgumentLoader {
                         Arg::new("workers")
                             .short('w')
                             .long("workers")
-                            .help("Defines how many worker threads are used for tasks that can be executed in parllel.")
+                            .help("Defines how many worker threads are created in the OS thread pool.")
                             .default_value("1"),
                     )
                     .arg(
                         Arg::new("prefix")
                             .short('p')
                             .long("prefix")
-                            .help("The prefix to use for output to STDOUT.")
+                            .help("The prefix for child process output that gets printed to STDOUT.")
                             .default_value("==> "),
                     )
                     .arg(
                         Arg::new("silent")
                             .short('s')
                             .long("silent")
-                            .help("Disables STDOUT output of child processes.")
+                            .help("Disables any output to STDOUT. Useful for preventing leakage of secrets.")
                             .num_args(0),
                     ),
             )
             .subcommand(
-                clap::Command::new("plan")
-                    .about("Plans an execution of task chains.")
-                    .visible_aliases(&["r"])
-                    .arg(
-                        Arg::new("config")
-                            .short('f')
-                            .long("config")
-                            .help("The configuration file to use.")
-                            .default_value("./.neomake.yaml"),
-                    )
-                    .arg(
-                        Arg::new("chain")
-                            .short('c')
-                            .long("chain")
-                            .action(ArgAction::Append)
-                            .help("Which chain to execute."),
-                    )
-                    .arg(
-                        Arg::new("arg")
-                            .short('a')
-                            .long("arg")
-                            .action(ArgAction::Append)
-                            .help("An argument to the chain."),
-                    )
-                    .arg(
-                        Arg::new("output")
-                            .short('o')
-                            .long("output")
-                            .help("The output format.")
-                            .default_value("yaml")
-                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
-                    ),
-            )
-            .subcommand(
                 clap::Command::new("describe")
-                    .about("Describe the execution graph for given task chain configuration(s).")
-                    .visible_aliases(&["p"])
+                    .about("Describes which nodes are executed in which stages.")
+                    .visible_aliases(&["desc", "d"])
                     .arg(
-                        Arg::new("config")
-                            .short('f')
-                            .long("config")
-                            .help("The configuration file to use.")
+                        Arg::new("workflow")
+                            .long("workflow")
+                            .help("The workflow file to use.")
                             .default_value("./.neomake.yaml"),
                     )
                     .arg(
-                        Arg::new("chain")
-                            .short('c')
-                            .long("chain")
+                        Arg::new("node")
+                            .short('n')
+                            .long("node")
                             .action(ArgAction::Append)
-                            .help("Which chain to execute."),
+                            .help("Adding a node."),
                     )
                     .arg(
                         Arg::new("output")
@@ -319,13 +317,12 @@ impl ClapArgumentLoader {
             )
             .subcommand(
                 clap::Command::new("list")
-                    .about("Lists all available task chains.")
-                    .visible_aliases(&["ls"])
+                    .about("Lists all available nodes.")
+                    .visible_aliases(&["ls", "l"])
                     .arg(
-                        clap::Arg::new("config")
-                            .short('f')
-                            .long("config")
-                            .help("The configuration file to use.")
+                        clap::Arg::new("workflow")
+                            .long("workflow")
+                            .help("The workflow file to use.")
                             .default_value("./.neomake.yaml"),
                     )
                     .arg(
@@ -348,12 +345,12 @@ impl ClapArgumentLoader {
             Privilege::Normal
         };
 
-        fn parse_chains(x: &clap::ArgMatches) -> Result<HashSet<String>, Error> {
-            let chains = x
-                .get_many::<String>("chain")
-                .ok_or(Error::MissingArgument("chain".to_owned()))?;
+        fn parse_nodes(x: &clap::ArgMatches) -> Result<HashSet<String>, Error> {
+            let nodes = x
+                .get_many::<String>("node")
+                .ok_or(Error::MissingArgument("node".to_owned()))?;
 
-            Ok(HashSet::<String>::from_iter(chains.into_iter().map(|v| v.to_owned())))
+            Ok(HashSet::<String>::from_iter(nodes.into_iter().map(|v| v.to_owned())))
         }
 
         let cmd = if let Some(subc) = command.subcommand_matches("man") {
@@ -370,9 +367,9 @@ impl ClapArgumentLoader {
                 path: subc.get_one::<String>("out").unwrap().into(),
                 shell: clap_complete::Shell::from_str(subc.get_one::<String>("shell").unwrap().as_str()).unwrap(),
             }
-        } else if let Some(x) = command.subcommand_matches("config") {
+        } else if let Some(x) = command.subcommand_matches("workflow") {
             if let Some(x) = x.subcommand_matches("init") {
-                Command::ConfigInit {
+                Command::WorkflowInit {
                     template: match x.get_one::<String>("template").unwrap().as_str() {
                         | "min" => InitTemplate::Min,
                         | "max" => InitTemplate::Max,
@@ -385,7 +382,7 @@ impl ClapArgumentLoader {
                     },
                 }
             } else if let Some(_) = x.subcommand_matches("schema") {
-                Command::ConfigSchema
+                Command::WorkflowSchema
             } else {
                 return Err(Error::UnknownCommand);
             }
@@ -403,7 +400,7 @@ impl ClapArgumentLoader {
             std::io::stdin().read_to_string(&mut plan)?;
 
             Command::Execute {
-                plan: format.deserialize::<Execution>(&plan)?,
+                plan: format.deserialize::<ExecutionPlan>(&plan)?,
                 workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap())
                     .or(Err(Error::Generic("could not parse string".to_owned())))?,
                 prefix: x.get_one::<String>("prefix").unwrap().to_owned(),
@@ -419,20 +416,20 @@ impl ClapArgumentLoader {
             }
 
             Command::Plan {
-                config: std::fs::read_to_string(x.get_one::<String>("config").unwrap())?,
-                chains: parse_chains(x)?,
+                workflow: std::fs::read_to_string(x.get_one::<String>("workflow").unwrap())?,
+                nodes: parse_nodes(x)?,
                 args: args_map,
                 format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else if let Some(x) = command.subcommand_matches("list") {
             Command::List {
-                config: std::fs::read_to_string(x.get_one::<String>("config").unwrap())?,
+                workflow: std::fs::read_to_string(x.get_one::<String>("workflow").unwrap())?,
                 format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else if let Some(x) = command.subcommand_matches("describe") {
             Command::Describe {
-                config: std::fs::read_to_string(x.get_one::<String>("config").unwrap())?,
-                chains: parse_chains(x)?,
+                workflow: std::fs::read_to_string(x.get_one::<String>("workflow").unwrap())?,
+                nodes: parse_nodes(x)?,
                 format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else {

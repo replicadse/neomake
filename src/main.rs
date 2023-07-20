@@ -7,11 +7,11 @@ use args::{InitOutput, ManualFormat};
 use model::ExecEngine;
 
 pub mod args;
-pub mod config;
 pub mod error;
 pub mod model;
 pub mod output;
 pub mod reference;
+pub mod workflow;
 
 #[tokio::main]
 async fn main() -> Result<(), crate::error::Error> {
@@ -38,17 +38,17 @@ async fn main() -> Result<(), crate::error::Error> {
             reference::build_shell_completion(&out_path, &shell)?;
             Ok(())
         },
-        | crate::args::Command::ConfigInit { template, output } => {
+        | crate::args::Command::WorkflowInit { template, output } => {
             match output {
                 | InitOutput::File(f) => std::fs::write(f, template.render())?,
                 | InitOutput::Stdout => print!("{}", template.render()),
             };
             Ok(())
         },
-        | crate::args::Command::ConfigSchema => {
+        | crate::args::Command::WorkflowSchema => {
             print!(
                 "{}",
-                serde_json::to_string_pretty(&schemars::schema_for!(crate::config::Config)).unwrap()
+                serde_json::to_string_pretty(&schemars::schema_for!(crate::workflow::Workflow)).unwrap()
             );
             Ok(())
         },
@@ -63,24 +63,28 @@ async fn main() -> Result<(), crate::error::Error> {
             Ok(())
         },
         | crate::args::Command::Plan {
-            config,
-            chains,
+            workflow,
+            nodes,
             args,
             format,
         } => {
-            let m = model::Config::load(&config)?;
-            let x = m.render_exec(&chains, &args).await?;
+            let m = model::Workflow::load(&workflow)?;
+            let x = m.render_exec(&nodes, &args).await?;
             print!("{}", format.serialize(&x)?);
             Ok(())
         },
-        | crate::args::Command::List { config, format } => {
-            let m = model::Config::load(&config)?;
+        | crate::args::Command::List { workflow, format } => {
+            let m = model::Workflow::load(&workflow)?;
             m.list(&format).await?;
             Ok(())
         },
-        | crate::args::Command::Describe { config, chains, format } => {
-            let m = model::Config::load(&config)?;
-            m.plan(&chains, &format).await?;
+        | crate::args::Command::Describe {
+            workflow,
+            nodes,
+            format,
+        } => {
+            let m = model::Workflow::load(&workflow)?;
+            m.plan(&nodes, &format).await?;
             Ok(())
         },
     }
@@ -92,7 +96,7 @@ mod tests {
 
     use interactive_process::InteractiveProcess;
 
-    // const CONFIG_PATH: &'static str = "./test/.neomake.yaml";
+    // const WORKFLOW_PATH: &'static str = "./test/.neomake.yaml";
 
     fn exec(command: &str) -> Result<String, crate::error::Error> {
         let mut cmd_proc = std::process::Command::new("sh");
@@ -120,23 +124,23 @@ mod tests {
     }
 
     #[test]
-    fn test_config_init_min() {
+    fn test_workflow_init_min() {
         assert!(
             include_str!("../res/templates/min.yaml")
-                == format!("{}\n", exec("cargo run -- config init -tmin -o-").unwrap())
+                == format!("{}\n", exec("cargo run -- workflow init -tmin -o-").unwrap())
         )
     }
 
     #[test]
-    fn test_config_init_max() {
+    fn test_workflow_init_max() {
         assert!(
             include_str!("../res/templates/max.yaml")
-                == format!("{}\n", exec("cargo run -- config init -tmax -o-").unwrap())
+                == format!("{}\n", exec("cargo run -- workflow init -tmax -o-").unwrap())
         )
     }
 
     #[test]
-    fn test_smoke_config_schema() {
-        exec("cargo run -- config init -tmax -o-").unwrap();
+    fn test_smoke_workflow_schema() {
+        exec("cargo run -- workflow init -tmax -o-").unwrap();
     }
 }

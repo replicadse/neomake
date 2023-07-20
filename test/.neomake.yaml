@@ -3,7 +3,7 @@ version: "0.5"
 env:
   ENV_GLOBAL: "val_global"
 
-chains:
+nodes:
   count:
     matrix:
       - - env:
@@ -44,7 +44,7 @@ chains:
           printf "bravo"
   charlie: # environment variables
     env:
-      ENV_CHAIN: val_chain
+      ENV_NODE: val_NODE
     matrix:
       - - env:
             ENV_MATRIX: val_matrix
@@ -54,7 +54,7 @@ chains:
         script: |
           set -e
           printf "$ENV_GLOBAL\n"
-          printf "$ENV_CHAIN\n"
+          printf "$ENV_NODE\n"
           printf "$ENV_MATRIX\n"
           printf "$ENV_TASK\n"
 

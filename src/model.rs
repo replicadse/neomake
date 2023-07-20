@@ -9,9 +9,9 @@ use itertools::Itertools;
 use threadpool::ThreadPool;
 
 use crate::{
-    config::Shell,
     error::Error,
     output::{self, Controller},
+    workflow::Shell,
 };
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -26,24 +26,24 @@ pub(crate) struct Matrix {
     tasks: Vec<Task>,
 }
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Chain {
+pub(crate) struct Node {
     matrix: Vec<Matrix>,
 }
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Stage {
-    chains: Vec<Chain>,
+    nodes: Vec<Node>,
 }
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Execution {
+pub(crate) struct ExecutionPlan {
     stages: Vec<Stage>,
 }
 
-pub(crate) struct Config {
-    pub chains: HashMap<String, crate::config::Chain>,
+pub(crate) struct Workflow {
+    pub nodes: HashMap<String, crate::workflow::Node>,
     pub env: HashMap<String, String>,
 }
 
-impl Config {
+impl Workflow {
     pub fn load(data: &str) -> Result<Self, Error> {
         #[derive(Debug, serde::Deserialize)]
         struct Versioned {
@@ -53,15 +53,15 @@ impl Config {
 
         if v.version != "0.5" {
             Err(Error::VersionCompatibility(format!(
-                "config version {} is incompatible with this CLI version {}",
+                "workflow version {} is incompatible with this CLI version {}",
                 v.version,
                 env!("CARGO_PKG_VERSION")
             )))?
         }
 
-        let cfg: crate::config::Config = serde_yaml::from_str(&data)?;
+        let cfg: crate::workflow::Workflow = serde_yaml::from_str(&data)?;
         Ok(Self {
-            chains: cfg.chains,
+            nodes: cfg.nodes,
             env: if let Some(e) = cfg.env {
                 e
             } else {
@@ -72,25 +72,25 @@ impl Config {
 
     pub async fn render_exec(
         &self,
-        exec_chains: &HashSet<String>,
+        nodes: &HashSet<String>,
         args: &HashMap<String, String>,
-    ) -> Result<Execution, Error> {
+    ) -> Result<ExecutionPlan, Error> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
         let arg_vals = self.build_args(args)?;
-        let stages = self.determine_order(exec_chains)?;
+        let stages = self.determine_order(nodes)?;
 
-        let mut res = Execution { stages: vec![] };
+        let mut plan = ExecutionPlan { stages: vec![] };
 
         for stage in stages {
-            let mut rendered_stage = Stage { chains: vec![] };
-            for chain in stage {
-                let mut rendered_chain = Chain { matrix: vec![] }; // chains + tasks -> parallelize on l0
-                let chain_def = &self.chains[&chain];
+            let mut rendered_stage = Stage { nodes: vec![] };
+            for node in stage {
+                let mut rendered_node = Node { matrix: vec![] }; // nodes + tasks -> parallelize on l0
+                let node_def = &self.nodes[&node];
 
-                let matrix_entry_default = crate::config::MatrixEntry { ..Default::default() };
+                let matrix_entry_default = crate::workflow::MatrixCell { ..Default::default() };
 
-                let matrix_cp = if let Some(matrix) = &chain_def.matrix {
+                let matrix_cp = if let Some(matrix) = &node_def.matrix {
                     matrix.iter().multi_cartesian_product().collect::<Vec<_>>()
                 } else {
                     vec![vec![&matrix_entry_default]]
@@ -98,12 +98,12 @@ impl Config {
 
                 for mat in matrix_cp {
                     let mut rendered_matrix = Matrix { tasks: vec![] };
-                    for task in &chain_def.tasks {
+                    for task in &node_def.tasks {
                         let rendered_cmd = hb.render_template(&task.script, &arg_vals)?;
 
                         let workdir = if let Some(workdir) = &task.workdir {
                             Some(workdir.to_owned())
-                        } else if let Some(workdir) = &chain_def.workdir {
+                        } else if let Some(workdir) = &node_def.workdir {
                             Some(workdir.to_owned())
                         } else {
                             None
@@ -111,10 +111,10 @@ impl Config {
 
                         let shell = if let Some(shell) = &task.shell {
                             shell.to_owned()
-                        } else if let Some(shell) = &chain_def.shell {
+                        } else if let Some(shell) = &node_def.shell {
                             shell.to_owned()
                         } else {
-                            crate::config::Shell {
+                            crate::workflow::Shell {
                                 program: "sh".to_owned(),
                                 args: vec!["-c".to_owned()],
                             }
@@ -135,7 +135,7 @@ impl Config {
                         }
 
                         let self_env = Some(self.env.clone());
-                        for env in vec![&self_env, &chain_def.env, &combined_matrix_env, &task.env] {
+                        for env in vec![&self_env, &node_def.env, &combined_matrix_env, &task.env] {
                             if let Some(m) = env {
                                 rendered_task.env.extend(m.clone());
                             }
@@ -143,23 +143,23 @@ impl Config {
 
                         rendered_matrix.tasks.push(rendered_task);
                     }
-                    rendered_chain.matrix.push(rendered_matrix);
+                    rendered_node.matrix.push(rendered_matrix);
                 }
-                rendered_stage.chains.push(rendered_chain);
+                rendered_stage.nodes.push(rendered_node);
             }
-            res.stages.push(rendered_stage);
+            plan.stages.push(rendered_stage);
         }
 
-        Ok(res)
+        Ok(plan)
     }
 
     pub async fn list(&self, format: &crate::args::Format) -> Result<(), Error> {
         #[derive(Debug, serde::Serialize)]
         struct Output {
-            chains: Vec<OutputChain>,
+            nodes: Vec<OutputNode>,
         }
         #[derive(Debug, serde::Serialize)]
-        struct OutputChain {
+        struct OutputNode {
             name: String,
             #[serde(skip_serializing_if = "Option::is_none")]
             description: Option<String>,
@@ -168,21 +168,21 @@ impl Config {
         }
 
         let mut info = Output {
-            chains: Vec::from_iter(self.chains.iter().map(|c| OutputChain {
+            nodes: Vec::from_iter(self.nodes.iter().map(|c| OutputNode {
                 name: c.0.to_owned(),
                 description: c.1.description.clone(),
                 pre: c.1.pre.clone(),
             })),
         };
-        info.chains.sort_by(|a, b| a.name.cmp(&b.name));
+        info.nodes.sort_by(|a, b| a.name.cmp(&b.name));
 
         println!("{}", format.serialize(&info)?);
 
         Ok(())
     }
 
-    pub async fn plan(&self, chains: &HashSet<String>, format: &crate::args::Format) -> Result<(), Error> {
-        let structure = self.determine_order(&chains)?;
+    pub async fn plan(&self, nodes: &HashSet<String>, format: &crate::args::Format) -> Result<(), Error> {
+        let structure = self.determine_order(&nodes)?;
 
         #[derive(Debug, serde::Serialize)]
         struct Output {
@@ -247,7 +247,7 @@ impl Config {
             }
             seen.insert(next.clone());
 
-            let c = self.chains.get(&next);
+            let c = self.nodes.get(&next);
             if c.is_none() {
                 return Err(Error::NotFound(next.to_owned()));
             }
@@ -281,7 +281,7 @@ impl Config {
             }
 
             if leafs.len() == 0 {
-                return Err(Error::TaskChainRecursion);
+                return Err(Error::NodeRecursion);
             }
             let set = leafs.iter().map(|x| x.0.clone());
             seen.extend(set.clone());
@@ -307,14 +307,14 @@ impl ExecEngine {
         }
     }
 
-    pub async fn execute(&self, plan: Execution, workers: usize) -> Result<(), Error> {
+    pub async fn execute(&self, plan: ExecutionPlan, workers: usize) -> Result<(), Error> {
         for stage in plan.stages {
-            let signal_cnt = stage.chains.iter().map(|c| c.matrix.len()).sum();
+            let signal_cnt = stage.nodes.iter().map(|c| c.matrix.len()).sum();
             let pool = ThreadPool::new(workers);
             let (tx, rx) = std::sync::mpsc::channel::<Result<(), Error>>();
 
-            for chain in stage.chains {
-                for matrix in chain.matrix {
+            for node in stage.nodes {
+                for matrix in node.matrix {
                     let output_thread = self.output.clone();
                     let tx_thread = tx.clone();
 
@@ -365,7 +365,7 @@ impl ExecEngine {
                 .map(|x| x.expect_err("expect"))
                 .collect::<Vec<_>>();
             if errs.len() > 0 {
-                return Err(Error::Many(errs));
+                return Err(Error::Many(errs)); // abort at this stage
             }
         }
         Ok(())

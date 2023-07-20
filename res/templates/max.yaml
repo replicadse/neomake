@@ -8,7 +8,7 @@ env:
 .anchor: &anchor |
   printf "test anchor"
 
-chains:
+nodes:
   python:
     description: This is an example of using multiple execution environments (shell and python).
     shell:

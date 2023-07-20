@@ -19,8 +19,8 @@ pub(crate) enum Error {
     MissingArgument(String),
     #[error("child process")]
     ChildProcess(String),
-    #[error("task chain recursion")]
-    TaskChainRecursion,
+    #[error("task node recursion")]
+    NodeRecursion,
     #[error("unknown command")]
     UnknownCommand,
     #[error("version compatibility")]
