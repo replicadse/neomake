@@ -1,0 +1,28 @@
+version: "0.5"
+
+chains:
+  count:
+    matrix:
+      - - env:
+            X: "0"
+        - env:
+            X: "1"
+      - - env:
+            Y: "0"
+        - env:
+            Y: "1"
+    tasks:
+      - shell:
+          program: "python3"
+          args:
+            - "-c"
+        script: |
+          import time
+          import os
+          import random
+
+          cnt = 0
+          while True:
+            print(f'{os.environ.get("X")}{os.environ.get("Y")}: {cnt}', flush=True)
+            cnt+=1
+            time.sleep(random.random())

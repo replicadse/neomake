@@ -103,6 +103,7 @@ impl Format {
 pub(crate) enum InitTemplate {
     Min,
     Max,
+    Python,
 }
 
 impl InitTemplate {
@@ -110,6 +111,7 @@ impl InitTemplate {
         match self {
             | InitTemplate::Min => include_str!("../res/templates/min.yaml").to_owned(),
             | InitTemplate::Max => include_str!("../res/templates/max.yaml").to_owned(),
+            | InitTemplate::Python => include_str!("../res/templates/python.yaml").to_owned(),
         }
     }
 }
@@ -209,7 +211,7 @@ impl ClapArgumentLoader {
                                     .long("template")
                                     .help("The template to init with.")
                                     .default_value("min")
-                                    .value_parser(["min", "max"]),
+                                    .value_parser(["min", "max", "python"]),
                             )
                             .arg(
                                 Arg::new("output")
@@ -374,6 +376,7 @@ impl ClapArgumentLoader {
                     template: match x.get_one::<String>("template").unwrap().as_str() {
                         | "min" => InitTemplate::Min,
                         | "max" => InitTemplate::Max,
+                        | "python" => InitTemplate::Python,
                         | _ => return Err(Error::Argument("unknown template".into())),
                     },
                     output: match x.get_one::<String>("output").unwrap().as_str() {

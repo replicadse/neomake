@@ -17,7 +17,7 @@
 - **Multidimensional invocation matrices**\
   Invoke task chains many times by specifying multiple dimensions with variable lengths in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's parallel matrix builds but adds the feature of executing all elements in the cartesian product of the matrix dimensions.
 - **YAML**\
-  No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for handy features such as YAML anchors (and everything in the YAML 1.2 standard).
+  No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for handy features such as YAML anchors (and everything in the `YAML 1.2` standard).
 - **Customizable environment**\
   You can customize which shell or program (such as bash or python) `neomake` uses as interpreter for the command. You can also specify arguments that are provided per invocation via the command line, working directories and environment variables on multiple different levels. Generally, values defined in the inner scope will extend and replace the outer scope.
 - **Plan & execute**\
@@ -32,6 +32,26 @@
 2) For the bleeding edge master branch:\
   `cargo install --git https://github.com/replicadse/neomake.git`
 
+## Example
+
+First, initialize an example workflow file with the following command.
+
+```bash
+neomake config init -tpython
+```
+
+Now, execute the `count` chain. Per default, `neomake` will only use exactly one worker thread and execute the endless embedded python program.
+
+```bash
+neomake plan -ccount | neomake x -fyaml
+```
+
+In order to work on all 4 desired executions (defined as 2x2 matrix), call neomake with the number of worker threads desired. Now you will see that the 4 programs will be executed in parallel.
+
+```bash
+neomake plan -ccount | neomake x -fyaml -w4
+```
+
 ## Graph execution
 
 Execute command chains as follows.
@@ -43,7 +63,9 @@ neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oyaml | neomake execut
 Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduplicated so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.\
 Let's assume the following graph of task chains and their dependencies:
 
-`neomake ls`
+```bash
+neomake ls
+```
 
 ```yaml
 ---
@@ -64,7 +86,10 @@ chains:
 
 In words, `A` and `B` are nodes without any prerequisites whereas `C` depends on `A` and `D` depends on `B`. Notably, `E` depends on both `A` and `D`. This means that `E` also transiently depends on any dependencies of `A` (`{}`) and `D` (`{B}`).
 
-A CLI call such as `neomake describe -cC -cE` would render the following task executions.
+It is also possible to get a simple description of the workflow to be executed.
+```bash
+neomake describe -cC -cE
+```
 
 ```yaml
 ---
