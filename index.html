@@ -167,15 +167,15 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="neomake"><a class="header" href="#neomake">neomake</a></h1>
-<p><code>neomake</code> is a fully open source task runner CLI utility that acts as a modern alternative to known utilities.</p>
+<p><code>neomake</code> is a task runner CLI utility that acts as a modern alternative to known utilities like <code>Makefile</code>s.</p>
 <h2 id="project-state"><a class="header" href="#project-state">Project state</a></h2>
-<p><code>neomake</code> is currently a pre-release and to be considered as <strong>unstable</strong>. It is actively maintained and used in production.</p>
+<p><code>neomake</code> is released and  <strong>stable</strong>. It is actively maintained and used in production.</p>
 <h2 id="features"><a class="header" href="#features">Features</a></h2>
 <ul>
 <li><strong>Task chains</strong><br />
 Execute many tasks in sequence, easily re-use single tasks using YAML anchors.</li>
 <li><strong>Task chain graphs</strong><br />
-Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use <code>neomake -e describe -c ...</code> to view the task chains and the stages (in order) they are executed in.</li>
+Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use <code>neomake describe -c ...</code> to view the task chains and the stages (in order) they are executed in.</li>
 <li><strong>Parallel task execution</strong><br />
 All tasks inside of the same stage can be executed in parallel. Furthermore, all invocations of the contained task chains as defined per the cartesian product of the invocation matrix can also be executed in parallel. Stages as well as tasks inside of a single task chain are always executed in sequence. You can define the number of worker threads via the <code>-w</code> flag.</li>
 <li><strong>Multidimensional invocation matrices</strong><br />
@@ -183,15 +183,57 @@ Invoke task chains many times by specifying multiple dimensions with variable le
 <li><strong>YAML</strong><br />
 No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand <code>yaml</code> file, including support for handy features such as YAML anchors (and everything in the YAML 1.2 standard).</li>
 <li><strong>Customizable environment</strong><br />
-You can customize which shell or program (such as python) <code>neomake</code> uses as interpreter for the command. You can also specify arguments that are provided per invocation via the command line, working directories and environment variables on multiple different levels. Generally, the most inner scope will extend or replace the outer scope.</li>
+You can customize which shell or program (such as bash or python) <code>neomake</code> uses as interpreter for the command. You can also specify arguments that are provided per invocation via the command line, working directories and environment variables on multiple different levels. Generally, values defined in the inner scope will extend and replace the outer scope.</li>
+<li><strong>Plan &amp; execute</strong><br />
+Supporting execution of commands in two stages. First plan and render the entire execution. Then invoke the execution engine with the plan. This way, plans can be stored and reviewed before execution.</li>
 </ul>
 <h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
 <p><code>neomake</code> is distributed through <code>cargo</code>.</p>
 <ol>
 <li><code>cargo install neomake</code></li>
 </ol>
+<h2 id="graph-execution"><a class="header" href="#graph-execution">Graph execution</a></h2>
+<p>Execute command chains as follows.</p>
+<pre><code class="language-bash">neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oyaml | neomake execute -fyaml
+</code></pre>
+<p>Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduplicated so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.<br />
+Let's assume the following graph of task chains and their dependencies:</p>
+<p><code>neomake ls</code></p>
+<pre><code class="language-yaml">---
+chains:
+  - name: A
+  - name: B
+  - name: C
+    pre:
+      - A
+  - name: D
+    pre:
+      - B
+  - name: E
+    pre:
+      - A
+      - D
+</code></pre>
+<p>In words, <code>A</code> and <code>B</code> are nodes without any prerequisites whereas <code>C</code> depends on <code>A</code> and <code>D</code> depends on <code>B</code>. Notably, <code>E</code> depends on both <code>A</code> and <code>D</code>. This means that <code>E</code> also transiently depends on any dependencies of <code>A</code> (<code>{}</code>) and <code>D</code> (<code>{B}</code>).</p>
+<p>A CLI call such as <code>neomake describe -cC -cE</code> would render the following task executions.</p>
+<pre><code class="language-yaml">---
+stages:
+  - - A
+    - B
+  - - D
+  - - E
+</code></pre>
+<p>Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. Tasks inside a stage are run in parallel (in an OS thread pool of the size given to the <code>worker</code> argument). <code>neomake</code> is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.</p>
+<h2 id="why"><a class="header" href="#why">Why</a></h2>
+<p>Why would someone build a task runner if there's many alternatives out there? A few of the most well known task running utilities / frameworks are (non exhaustive):</p>
+<ul>
+<li><code>make</code> (<code>Makefile</code>) - the original as well as many different implementations</li>
+<li><code>Earthly</code> (<code>Earthfile</code>) - executing tasks inside of containers</li>
+<li><code>pyinvoke</code> (<code>tasks.py</code>) - executing tasks from within python scripts</li>
+</ul>
+<p>I built this utility because all of the alternatives I have tried, including the ones listed above were lacking some features. I was basically looking for a subset of the functionality which the GitLab pipelines provide incl. features such as matrix builds and more. Especially things like invoking commands in many locations, parallelizing tasks, easy parameterization and a few more.</p>
 <h2 id="example-configuration"><a class="header" href="#example-configuration">Example configuration</a></h2>
-<pre><code class="language-yaml">version: 0.3
+<pre><code class="language-yaml">version: &quot;0.5&quot;
 
 env:
   DEFAULT_ENV_VAR: default var
@@ -296,43 +338,178 @@ chains:
           echo &quot;too far!&quot;
 
 </code></pre>
-<h2 id="graph-execution"><a class="header" href="#graph-execution">Graph execution</a></h2>
-<p>Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduped so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.<br />
-Let's assume the following graph of task chains and their dependencies:</p>
-<p><code>neomake -e ls</code></p>
-<pre><code>---
-chains:
-  - name: A
-  - name: B
-  - name: C
-    pre:
-      - A
-  - name: D
-    pre:
-      - B
-  - name: E
-    pre:
-      - A
-      - D
+<p>For more examples, call <code>neomake config init --help</code> or look at the schema with <code>neomake config schema</code>.</p>
+<h2 id="schema"><a class="header" href="#schema">Schema</a></h2>
+<pre><code class="language-json">{
+  &quot;$schema&quot;: &quot;http://json-schema.org/draft-07/schema#&quot;,
+  &quot;title&quot;: &quot;Config&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;chains&quot;,
+    &quot;version&quot;
+  ],
+  &quot;properties&quot;: {
+    &quot;chains&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: {
+        &quot;$ref&quot;: &quot;#/definitions/Chain&quot;
+      }
+    },
+    &quot;env&quot;: {
+      &quot;type&quot;: [
+        &quot;object&quot;,
+        &quot;null&quot;
+      ],
+      &quot;additionalProperties&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;version&quot;: {
+      &quot;type&quot;: &quot;string&quot;
+    }
+  },
+  &quot;definitions&quot;: {
+    &quot;Chain&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;required&quot;: [
+        &quot;tasks&quot;
+      ],
+      &quot;properties&quot;: {
+        &quot;description&quot;: {
+          &quot;type&quot;: [
+            &quot;string&quot;,
+            &quot;null&quot;
+          ]
+        },
+        &quot;env&quot;: {
+          &quot;type&quot;: [
+            &quot;object&quot;,
+            &quot;null&quot;
+          ],
+          &quot;additionalProperties&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          }
+        },
+        &quot;matrix&quot;: {
+          &quot;type&quot;: [
+            &quot;array&quot;,
+            &quot;null&quot;
+          ],
+          &quot;items&quot;: {
+            &quot;type&quot;: &quot;array&quot;,
+            &quot;items&quot;: {
+              &quot;$ref&quot;: &quot;#/definitions/MatrixEntry&quot;
+            }
+          }
+        },
+        &quot;pre&quot;: {
+          &quot;type&quot;: [
+            &quot;array&quot;,
+            &quot;null&quot;
+          ],
+          &quot;items&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          }
+        },
+        &quot;shell&quot;: {
+          &quot;anyOf&quot;: [
+            {
+              &quot;$ref&quot;: &quot;#/definitions/Shell&quot;
+            },
+            {
+              &quot;type&quot;: &quot;null&quot;
+            }
+          ]
+        },
+        &quot;tasks&quot;: {
+          &quot;type&quot;: &quot;array&quot;,
+          &quot;items&quot;: {
+            &quot;$ref&quot;: &quot;#/definitions/Task&quot;
+          }
+        },
+        &quot;workdir&quot;: {
+          &quot;type&quot;: [
+            &quot;string&quot;,
+            &quot;null&quot;
+          ]
+        }
+      },
+      &quot;additionalProperties&quot;: false
+    },
+    &quot;MatrixEntry&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;properties&quot;: {
+        &quot;env&quot;: {
+          &quot;type&quot;: [
+            &quot;object&quot;,
+            &quot;null&quot;
+          ],
+          &quot;additionalProperties&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          }
+        }
+      },
+      &quot;additionalProperties&quot;: false
+    },
+    &quot;Shell&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;required&quot;: [
+        &quot;args&quot;,
+        &quot;program&quot;
+      ],
+      &quot;properties&quot;: {
+        &quot;args&quot;: {
+          &quot;type&quot;: &quot;array&quot;,
+          &quot;items&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          }
+        },
+        &quot;program&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;additionalProperties&quot;: false
+    },
+    &quot;Task&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;required&quot;: [
+        &quot;script&quot;
+      ],
+      &quot;properties&quot;: {
+        &quot;env&quot;: {
+          &quot;type&quot;: [
+            &quot;object&quot;,
+            &quot;null&quot;
+          ],
+          &quot;additionalProperties&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          }
+        },
+        &quot;script&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;shell&quot;: {
+          &quot;anyOf&quot;: [
+            {
+              &quot;$ref&quot;: &quot;#/definitions/Shell&quot;
+            },
+            {
+              &quot;type&quot;: &quot;null&quot;
+            }
+          ]
+        },
+        &quot;workdir&quot;: {
+          &quot;type&quot;: [
+            &quot;string&quot;,
+            &quot;null&quot;
+          ]
+        }
+      },
+      &quot;additionalProperties&quot;: false
+    }
+  }
+}
 </code></pre>
-<p>In words, <code>A</code> and <code>B</code> are nodes without any prerequisites whereas <code>C</code> depends on <code>A</code> and <code>D</code> depends on <code>B</code>. Notably, <code>E</code> depends on both <code>A</code> and <code>D</code>. This means that <code>E</code> also transiently depends on any dependencies of <code>A</code> (<code>{}</code>) and <code>D</code> (<code>{B}</code>).</p>
-<p>A CLI call such as <code>neomake -e describe -cC -cE</code> would render the following task executions.</p>
-<pre><code>---
-stages:
-  - - A
-    - B
-  - - D
-  - - E
-</code></pre>
-<p>Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. <code>neomake</code> is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.</p>
-<h2 id="why"><a class="header" href="#why">Why</a></h2>
-<p>Why would someone build a task runner if there's many alternatives out there? A few of the most well known task running utilities / frameworks are (non exhaustive):</p>
-<ul>
-<li><code>make</code> (<code>Makefile</code>) - the original as well as many different implementations</li>
-<li><code>Earthly</code> (<code>Earthfile</code>) - executing tasks inside of containers</li>
-<li><code>pyinvoke</code> (<code>tasks.py</code>) - executing tasks from within python scripts</li>
-</ul>
-<p>I built this utility because all of the alternatives I have tried, including the ones listed above were lacking some features. I was basically looking for a subset of the functionality which the GitLab pipelines provide incl. features such as matrix builds and more. Especially things like invoking commands in many locations, parallelizing tasks, easy parameterization and a few more.</p>
 
                     </main>
 
