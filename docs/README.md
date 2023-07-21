@@ -8,14 +8,12 @@
 
 ## Features
 
-- **Task chains**\
-  Execute many tasks in sequence, easily re-use single tasks using YAML anchors.
-- **Task chain graphs**\
-  Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use `neomake describe -c ...` to view the task chains and the stages (in order) they are executed in.
+- **DAG execution**\
+  Tasks are run in nodes. Nodes can be chained together to create a DAG. Simply specify all the nodes you want executed and it will automagically create the DAG based on the defined dependencies.
 - **Parallel task execution**\
-  All tasks inside of the same stage can be executed in parallel. Furthermore, all invocations of the contained task chains as defined per the cartesian product of the invocation matrix can also be executed in parallel. Stages as well as tasks inside of a single task chain are always executed in sequence. You can define the number of worker threads via the `-w` flag.
-- **Multidimensional invocation matrices**\
-  Invoke task chains many times by specifying multiple dimensions with variable lengths in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's parallel matrix builds but adds the feature of executing all elements in the cartesian product of the matrix dimensions.
+  The DAG generations are called stages. Stages are executed in sequence while all tasks inside of the stages are executed in parallel. Workloads are executed in OS threads. The default size of the threadpool is 1 but can be configured.
+- **Matrix invocations**\
+  Specify n-dimensional matrices that are used to invoke the node many times. You can define dense and sparse matrices. The node will be executed for every element in the cartesion product of the matrix.
 - **YAML**\
   No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand `yaml` file, including support for handy features such as YAML anchors (and everything in the `YAML 1.2` standard).
 - **Customizable environment**\
@@ -37,10 +35,10 @@
 First, initialize an example workflow file with the following command.
 
 ```bash
-neomake config init -tpython
+neomake workflow init -tpython
 ```
 
-Now, execute the `count` chain. Per default, `neomake` will only use exactly one worker thread and execute the endless embedded python program.
+Now, execute the `count` node. Per default, `neomake` will only use exactly one worker thread and execute the endless embedded python program.
 
 ```bash
 neomake plan -ccount | neomake x -fyaml
@@ -54,14 +52,14 @@ neomake plan -ccount | neomake x -fyaml -w4
 
 ## Graph execution
 
-Execute command chains as follows.
+Execute nodes as follows.
 
 ```bash
 neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oyaml | neomake execute -fyaml
 ```
 
-Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduplicated so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.\
-Let's assume the following graph of task chains and their dependencies:
+Nodes can define an array of dependenies (other nodes) that need to be executed beforehand. All node executions are deduplicated so that every node is only executed exactly once if requested for invocation or as a prerequisite on any level to any node that is to be executed. Alongside the ability to specify multiple node to be executed per command line call, this feature allows for complex workflows to be executed.\
+Let's assume the following graph of nodes and their dependencies:
 
 ```bash
 neomake ls
@@ -69,7 +67,7 @@ neomake ls
 
 ```yaml
 ---
-chains:
+nodes:
   - name: A
   - name: B
   - name: C
@@ -100,7 +98,7 @@ stages:
   - - E
 ```
 
-Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. Tasks inside a stage are run in parallel (in an OS thread pool of the size given to the `worker` argument). `neomake` is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.
+Stages need to run sequentially due to their nodes dependency on nodes executed in a previous stage. Tasks inside a stage are run in parallel (in an OS thread pool of the size given to the `worker` argument). `neomake` is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.
 
 ## Why
 

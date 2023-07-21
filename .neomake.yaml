@@ -3,23 +3,24 @@ version: "0.5"
 nodes:
   build:
     matrix:
-      - - env:
-            RELEASE: ""
-        - env:
-            RELEASE: "--release"
+      dense:
+        dimensions:
+          - - env:
+                RELEASE: ""
+            - env:
+                RELEASE: "--release"
+          - - env: {}
+            - env:
+                F_JSON: --features format_json
+          - - env: {}
+            - env:
+                F_TOML: --features format_toml
+          - - env: {}
+            - env:
+                F_RON: --features format_ron
     tasks:
       - script: |
           set -e
-          cargo build $FEATURES $RELEASE
-
-  test:
-    tasks:
-      - script: |
-          set -e
-          cargo test --no-fail-fast
-
-  "hook:pre-push":
-    pre:
-      - build
-      - test
-    tasks: []
+          export CARGO_FLAGS="$F_JSON $F_TOML $F_RON $RELEASE"
+          echo $CARGO_FLAGS
+          cargo build $CARGO_FLAGS

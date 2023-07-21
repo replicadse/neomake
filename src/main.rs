@@ -1,17 +1,19 @@
 include!("check_features.rs");
 
+pub mod args;
+pub mod error;
+pub mod exec;
+pub mod model;
+pub mod output;
+pub mod plan;
+pub mod reference;
+pub mod workflow;
+
 use std::path::PathBuf;
 use std::result::Result;
 
 use args::{InitOutput, ManualFormat};
-use model::ExecEngine;
-
-pub mod args;
-pub mod error;
-pub mod model;
-pub mod output;
-pub mod reference;
-pub mod workflow;
+use exec::ExecEngine;
 
 #[tokio::main]
 async fn main() -> Result<(), crate::error::Error> {
@@ -84,7 +86,7 @@ async fn main() -> Result<(), crate::error::Error> {
             format,
         } => {
             let m = model::Workflow::load(&workflow)?;
-            m.plan(&nodes, &format).await?;
+            m.describe(&nodes, &format).await?;
             Ok(())
         },
     }

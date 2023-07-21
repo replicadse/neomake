@@ -22,7 +22,7 @@ jobs:
           cargo run --target=x86_64-unknown-linux-gnu -- man -o ./markdown -f markdown
 
           # render and include schema
-          cargo run --target=x86_64-unknown-linux-gnu -- config schema > ./docs/schema.json
+          cargo run --target=x86_64-unknown-linux-gnu -- workflow schema > ./docs/schema.json
           fmerge merge -p "<-- %f -->" -f ./docs/README.md > ./docs/README_MERGED.md
           mv ./docs/README_MERGED.md ./docs/README.md
 

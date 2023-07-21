@@ -1,46 +1,16 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     iter::FromIterator,
-    sync::{Arc, Mutex},
 };
 
-use interactive_process::InteractiveProcess;
 use itertools::Itertools;
-use threadpool::ThreadPool;
 
-use crate::{
-    error::Error,
-    output::{self, Controller},
-    workflow::Shell,
-};
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Task {
-    cmd: String,
-    env: HashMap<String, String>,
-    workdir: Option<String>,
-    shell: Shell,
-}
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Matrix {
-    tasks: Vec<Task>,
-}
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Node {
-    matrix: Vec<Matrix>,
-}
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Stage {
-    nodes: Vec<Node>,
-}
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct ExecutionPlan {
-    stages: Vec<Stage>,
-}
+use crate::{error::Error, plan};
 
 pub(crate) struct Workflow {
     pub nodes: HashMap<String, crate::workflow::Node>,
     pub env: HashMap<String, String>,
+    pub capture: Option<String>,
 }
 
 impl Workflow {
@@ -62,6 +32,7 @@ impl Workflow {
         let cfg: crate::workflow::Workflow = serde_yaml::from_str(&data)?;
         Ok(Self {
             nodes: cfg.nodes,
+            capture: cfg.capture,
             env: if let Some(e) = cfg.env {
                 e
             } else {
@@ -74,78 +45,103 @@ impl Workflow {
         &self,
         nodes: &HashSet<String>,
         args: &HashMap<String, String>,
-    ) -> Result<ExecutionPlan, Error> {
+    ) -> Result<plan::ExecutionPlan, Error> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
         let arg_vals = self.build_args(args)?;
         let stages = self.determine_order(nodes)?;
 
-        let mut plan = ExecutionPlan { stages: vec![] };
+        let mut plan = plan::ExecutionPlan {
+            stages: vec![],
+            nodes: HashMap::<_, _>::new(),
+            env: self.env.clone(),
+        };
+        // captured env variables
+        if let Some(v) = &self.capture {
+            let regex = fancy_regex::Regex::new(v)?;
+            let envs = std::env::vars().collect_vec();
+            for e in envs {
+                if regex.is_match(&e.0)? {
+                    plan.env.insert(e.0, e.1);
+                }
+            }
+        }
 
         for stage in stages {
-            let mut rendered_stage = Stage { nodes: vec![] };
+            let mut rendered_stage = plan::Stage { nodes: vec![] };
             for node in stage {
-                let mut rendered_node = Node { matrix: vec![] }; // nodes + tasks -> parallelize on l0
                 let node_def = &self.nodes[&node];
+                let mut rendered_node = plan::Node {
+                    invocations: vec![],
+                    tasks: vec![],
 
-                let matrix_entry_default = crate::workflow::MatrixCell { ..Default::default() };
+                    env: HashMap::<_, _>::new(),
+                    shell: match node_def.shell.clone() {
+                        | Some(v) => Some(v.into()),
+                        | None => None,
+                    },
+                    workdir: node_def.workdir.clone(),
+                };
+                // captured env variables
+                if let Some(v) = &node_def.capture {
+                    let regex = fancy_regex::Regex::new(v)?;
+                    let envs = std::env::vars().collect_vec();
+                    for e in envs {
+                        if regex.is_match(&e.0)? {
+                            rendered_node.env.insert(e.0, e.1);
+                        }
+                    }
+                }
+                // explicitly set vars override
+                rendered_node.env.extend(match node_def.env.clone() {
+                    | Some(v) => v,
+                    | None => HashMap::<_, _>::new(),
+                });
 
-                let matrix_cp = if let Some(matrix) = &node_def.matrix {
-                    matrix.iter().multi_cartesian_product().collect::<Vec<_>>()
-                } else {
-                    vec![vec![&matrix_entry_default]]
+                // default to one matrix entry
+                let invocation_default = vec![crate::plan::Invocation { ..Default::default() }];
+
+                for task in &node_def.tasks {
+                    let rendered_cmd = hb.render_template(&task.script, &arg_vals)?;
+
+                    rendered_node.tasks.push(plan::Task {
+                        cmd: rendered_cmd,
+                        shell: match task.shell.clone() {
+                            | Some(v) => Some(v.into()),
+                            | None => None,
+                        },
+                        env: match task.env.clone() {
+                            | Some(v) => v,
+                            | None => HashMap::<_, _>::new(),
+                        },
+                        workdir: task.workdir.clone(),
+                    });
+                }
+
+                rendered_node.invocations = match &node_def.matrix {
+                    | Some(m) => m.compile()?,
+                    | None => invocation_default,
                 };
 
-                for mat in matrix_cp {
-                    let mut rendered_matrix = Matrix { tasks: vec![] };
-                    for task in &node_def.tasks {
-                        let rendered_cmd = hb.render_template(&task.script, &arg_vals)?;
+                // rendered_node.invocations = match &node_def.matrix {
+                //     | Some(v) => v
+                //         .iter()
+                //         .multi_cartesian_product()
+                //         .map(|x| {
+                //             let mut env = HashMap::<String, String>::new();
+                //             for i in x {
+                //                 if let Some(e) = &i.env {
+                //                     env.extend(e.clone());
+                //                 }
+                //             }
+                //             plan::Invocation { env }
+                //         })
+                //         .collect_vec(),
+                //     | None => matrix_entry_default,
+                // };
 
-                        let workdir = if let Some(workdir) = &task.workdir {
-                            Some(workdir.to_owned())
-                        } else if let Some(workdir) = &node_def.workdir {
-                            Some(workdir.to_owned())
-                        } else {
-                            None
-                        };
-
-                        let shell = if let Some(shell) = &task.shell {
-                            shell.to_owned()
-                        } else if let Some(shell) = &node_def.shell {
-                            shell.to_owned()
-                        } else {
-                            crate::workflow::Shell {
-                                program: "sh".to_owned(),
-                                args: vec!["-c".to_owned()],
-                            }
-                        };
-
-                        let mut rendered_task = Task {
-                            cmd: rendered_cmd,
-                            env: HashMap::<String, String>::new(),
-                            workdir,
-                            shell,
-                        };
-
-                        let mut combined_matrix_env = Some(HashMap::<String, String>::new());
-                        for i in 0..mat.len() {
-                            if let Some(env_current) = &mat[i].env {
-                                combined_matrix_env.as_mut().unwrap().extend(env_current.clone());
-                            }
-                        }
-
-                        let self_env = Some(self.env.clone());
-                        for env in vec![&self_env, &node_def.env, &combined_matrix_env, &task.env] {
-                            if let Some(m) = env {
-                                rendered_task.env.extend(m.clone());
-                            }
-                        }
-
-                        rendered_matrix.tasks.push(rendered_task);
-                    }
-                    rendered_node.matrix.push(rendered_matrix);
-                }
-                rendered_stage.nodes.push(rendered_node);
+                plan.nodes.insert(node.clone(), rendered_node);
+                rendered_stage.nodes.push(node);
             }
             plan.stages.push(rendered_stage);
         }
@@ -181,7 +177,7 @@ impl Workflow {
         Ok(())
     }
 
-    pub async fn plan(&self, nodes: &HashSet<String>, format: &crate::args::Format) -> Result<(), Error> {
+    pub async fn describe(&self, nodes: &HashSet<String>, format: &crate::args::Format) -> Result<(), Error> {
         let structure = self.determine_order(&nodes)?;
 
         #[derive(Debug, serde::Serialize)]
@@ -289,85 +285,5 @@ impl Workflow {
         }
 
         Ok(result)
-    }
-}
-
-pub(crate) struct ExecEngine {
-    pub output: Arc<Mutex<output::Controller>>,
-}
-
-impl ExecEngine {
-    pub fn new(prefix: String, silent: bool) -> Self {
-        Self {
-            output: Arc::new(Mutex::new(Controller::new(
-                !silent,
-                prefix,
-                Box::new(std::io::stdout()),
-            ))),
-        }
-    }
-
-    pub async fn execute(&self, plan: ExecutionPlan, workers: usize) -> Result<(), Error> {
-        for stage in plan.stages {
-            let signal_cnt = stage.nodes.iter().map(|c| c.matrix.len()).sum();
-            let pool = ThreadPool::new(workers);
-            let (tx, rx) = std::sync::mpsc::channel::<Result<(), Error>>();
-
-            for node in stage.nodes {
-                for matrix in node.matrix {
-                    let output_thread = self.output.clone();
-                    let tx_thread = tx.clone();
-
-                    // executes matrix entry
-                    pool.execute(move || {
-                        let res = move || -> Result<(), Box<dyn std::error::Error>> {
-                            for task in matrix.tasks {
-                                let mut cmd_proc = std::process::Command::new(&task.shell.program);
-                                cmd_proc.args(task.shell.args);
-                                cmd_proc.envs(task.env);
-                                if let Some(w) = task.workdir {
-                                    cmd_proc.current_dir(w);
-                                }
-                                cmd_proc.arg(&task.cmd);
-
-                                let loc_out = output_thread.clone();
-                                let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
-                                    | Ok(v) => {
-                                        let mut lock = loc_out.lock().unwrap();
-                                        lock.print(&v).expect("could not print");
-                                    },
-                                    | Err(..) => {},
-                                })?
-                                .wait()?;
-                                if let Some(code) = exit_status.code() {
-                                    if code != 0 {
-                                        let err_msg = format!("command \"{}\" failed with code {}", &task.cmd, code);
-                                        return Err(Box::new(Error::ChildProcess(err_msg)));
-                                    }
-                                }
-                            }
-                            Ok(())
-                        }();
-                        match res {
-                            | Ok(..) => tx_thread.send(Ok(())).expect("send failed"),
-                            | Err(e) => tx_thread
-                                    // error formatting should be improved
-                                    .send(Err(Error::Generic(format!("{:?}", e))))
-                                    .expect("send failed"),
-                        }
-                    });
-                }
-            }
-            let errs = rx
-                .iter()
-                .take(signal_cnt)
-                .filter(|x| x.is_err())
-                .map(|x| x.expect_err("expect"))
-                .collect::<Vec<_>>();
-            if errs.len() > 0 {
-                return Err(Error::Many(errs)); // abort at this stage
-            }
-        }
-        Ok(())
     }
 }
