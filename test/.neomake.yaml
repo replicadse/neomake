@@ -1,19 +1,29 @@
 version: "0.5"
 
+capture: "^(PWD)$"
 env:
   ENV_GLOBAL: "val_global"
 
 nodes:
   count:
     matrix:
-      - - env:
-            X: "0"
-        - env:
-            X: "1"
-      - - env:
-            Y: "0"
-        - env:
-            Y: "1"
+      dense:
+        drop: "^(0,0,0|1,1,1)$"
+        # sparse:
+        #   keep: "^(0,0,0|1,1,1)$"
+        dimensions:
+          - - env:
+                X: "0"
+            - env:
+                X: "1"
+          - - env:
+                Y: "0"
+            - env:
+                Y: "1"
+          - - env:
+                Z: "0"
+            - env:
+                Z: "1"
     tasks:
       - shell:
           program: "python3"
@@ -26,9 +36,25 @@ nodes:
 
           cnt = 0
           while True:
-            print(f'{os.environ.get("X")}{os.environ.get("Y")}: {cnt}', flush=True)
+            print(f'{os.environ.get("X")}{os.environ.get("Y")}{os.environ.get("Z")}: {cnt}', flush=True)
             cnt+=1
             time.sleep(random.random())
+
+  print:
+    matrix:
+      dense:
+        dimensions:
+          - - env:
+                X: "0"
+            - env:
+                X: "1"
+          - - env:
+                Y: "0"
+            - env:
+                Y: "1"
+    tasks:
+      - script: |
+          printf $X-$Y
 
   alpha: # minimal example
     tasks:
@@ -46,8 +72,10 @@ nodes:
     env:
       ENV_NODE: val_NODE
     matrix:
-      - - env:
-            ENV_MATRIX: val_matrix
+      dense:
+        dimensions:
+          - - env:
+                ENV_MATRIX: "val_matrix"
     tasks:
       - env:
           ENV_TASK: val_task
@@ -60,14 +88,16 @@ nodes:
 
   delta: # matrix
     matrix:
-      - - env:
-            X: "0"
-        - env:
-            X: "1"
-      - - env:
-            Y: "0"
-        - env:
-            Y: "1"
+      dense:
+        dimensions:
+          - - env:
+                X: "0"
+            - env:
+                X: "1"
+          - - env:
+                Y: "0"
+            - env:
+                Y: "1"
     tasks:
       - script: |
           set -e
@@ -100,3 +130,33 @@ nodes:
         script: |
           set -e
           printf "$0"
+  golf:
+    tasks:
+      - script: |
+          set -e
+          exit 1
+
+  l0_0:
+    pre: []
+    capture: "^(HOME)$"
+    env:
+      HOME: some-home
+    tasks:
+      - script: printf l0_0
+  l1_0:
+    pre:
+      - l0_0
+    tasks:
+      - script: printf l1_0
+  l1_1:
+    capture: "^(HOME)$"
+    pre:
+      - l0_0
+    tasks:
+      - script: printf l1_1
+  l2_0:
+    pre:
+      - l1_0
+      - l1_1
+    tasks:
+      - script: printf l2_0

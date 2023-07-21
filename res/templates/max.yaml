@@ -16,10 +16,12 @@ nodes:
       args:
         - -c
     matrix:
-      - - env:
-            PRINT_VAL: value 0
-        - env:
-            PRINT_VAL: value 1
+      dense:
+        dimensions:
+          - - env:
+                PRINT_VAL: value 0
+            - env:
+                PRINT_VAL: value 1
     tasks:
       - shell:
           program: python
@@ -31,20 +33,23 @@ nodes:
 
   a:
     matrix:
-      - - env:
-            VA: A0
-        - env:
-            VA: A1
-      - - env:
-            VB: B0
-        - env:
-            VB: B1
-        - env:
-            VB: B2
-      - - env:
-            VC: C0
-        - env:
-            VC: C1
+      dense:
+        drop: "^(0,0,0)$"
+        dimensions:
+          - - env:
+                VA: A0
+            - env:
+                VA: A1
+          - - env:
+                VB: B0
+            - env:
+                VB: B1
+            - env:
+                VB: B2
+          - - env:
+                VC: C0
+            - env:
+                VC: C1
     tasks:
       - script: echo "$VA $VB $VC"
   b:
@@ -53,10 +58,23 @@ nodes:
     tasks:
       - script: echo "b"
   c:
+    matrix:
+      sparse:
+        keep: "^(1,1)$"
+        dimensions:
+          - - env:
+                VA: A0
+            - env:
+                VA: A1
+          - - env:
+                VB: B0
+            - env:
+                VB: B1
     pre:
       - b
     tasks:
-      - script: echo "c"
+      - script: |
+          echo "$VA $VB"
 
   minimal:
     tasks:
@@ -75,8 +93,10 @@ nodes:
 
   test:
     matrix:
-      - - env:
-            OVERRIDE_ENV_VAR_0: new e0
+      dense:
+        dimensions:
+          - - env:
+                OVERRIDE_ENV_VAR_0: new e0
     tasks:
       - env:
           OVERRIDE_ENV_VAR_1: new e1

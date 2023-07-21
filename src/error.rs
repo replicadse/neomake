@@ -41,4 +41,6 @@ pub(crate) enum Error {
     DeserializeRon(#[from] ron::error::SpannedError),
     #[error("handlebars")]
     Handlebars(#[from] handlebars::RenderError),
+    #[error("regex")]
+    RegexError(#[from] fancy_regex::Error),
 }
