@@ -8,7 +8,7 @@ use std::{
 
 use clap::{Arg, ArgAction};
 
-use crate::{error::Error, model::ExecutionPlan};
+use crate::{error::Error, plan::ExecutionPlan};
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Privilege {
@@ -43,16 +43,24 @@ pub(crate) enum ManualFormat {
 
 #[derive(Debug)]
 pub(crate) enum Format {
-    JSON { pretty: bool },
     YAML,
+    #[cfg(feature = "format_json")]
+    JSON {
+        pretty: bool,
+    },
+    #[cfg(feature = "format_toml")]
     TOML,
-    RON { pretty: bool },
+    #[cfg(feature = "format_ron")]
+    RON {
+        pretty: bool,
+    },
 }
 
 impl Format {
     pub(crate) fn serialize<T: serde::Serialize>(&self, arg: &T) -> Result<String, crate::error::Error> {
         match self {
             | crate::args::Format::YAML => Ok(serde_yaml::to_string(arg)?),
+            #[cfg(feature = "format_json")]
             | crate::args::Format::JSON { pretty } => {
                 if *pretty {
                     Ok(serde_json::to_string_pretty(arg)?)
@@ -60,7 +68,9 @@ impl Format {
                     Ok(serde_json::to_string(arg)?)
                 }
             },
+            #[cfg(feature = "format_toml")]
             | crate::args::Format::TOML => Ok(toml::to_string(arg)?),
+            #[cfg(feature = "format_ron")]
             | crate::args::Format::RON { pretty } => {
                 if *pretty {
                     Ok(ron::ser::to_string_pretty(
@@ -80,8 +90,11 @@ impl Format {
     pub(crate) fn deserialize<T: serde::de::DeserializeOwned>(&self, s: &str) -> Result<T, crate::error::Error> {
         match self {
             | crate::args::Format::YAML => Ok(serde_yaml::from_str::<T>(s)?),
+            #[cfg(feature = "format_json")]
             | crate::args::Format::JSON { .. } => Ok(serde_json::from_str::<T>(s)?),
+            #[cfg(feature = "format_toml")]
             | crate::args::Format::TOML => Ok(toml::from_str::<T>(s)?),
+            #[cfg(feature = "format_ron")]
             | crate::args::Format::RON { .. } => Ok(ron::from_str::<T>(s)?),
         }
     }
@@ -89,10 +102,15 @@ impl Format {
     fn from_arg(arg: &str) -> Result<Self, crate::error::Error> {
         match arg {
             | "yaml" => Ok(Format::YAML),
+            #[cfg(feature = "format_json")]
             | "json" => Ok(Format::JSON { pretty: false }),
+            #[cfg(feature = "format_json")]
             | "json+p" => Ok(Format::JSON { pretty: true }),
+            #[cfg(feature = "format_toml")]
             | "toml" => Ok(Format::TOML),
+            #[cfg(feature = "format_ron")]
             | "ron" => Ok(Format::RON { pretty: false }),
+            #[cfg(feature = "format_ron")]
             | "ron+p" => Ok(Format::RON { pretty: true }),
             | _ => Err(Error::Argument("output".to_owned())),
         }
@@ -164,6 +182,16 @@ pub(crate) struct ClapArgumentLoader {}
 
 impl ClapArgumentLoader {
     pub(crate) fn root_command() -> clap::Command {
+        #[allow(unused_mut)] // features will add
+        let mut formats = vec!["yaml"];
+        #[cfg(feature = "format_json")]
+        formats.extend(["json", "json+p"]);
+        #[cfg(feature = "format_toml")]
+        formats.push("toml");
+        #[cfg(feature = "format_ron")]
+        formats.extend(["ron", "ron+p"]);
+        assert!(formats.len() > 0);
+
         clap::Command::new("neomake")
             .version(env!("CARGO_PKG_VERSION"))
             .about("A makefile alternative / task runner.")
@@ -252,8 +280,8 @@ impl ClapArgumentLoader {
                             .short('o')
                             .long("output")
                             .help("Specifies the output format.")
-                            .default_value("yaml")
-                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
+                            .default_value(formats.first().unwrap())
+                            .value_parser(formats.clone()),
                     ),
             )
             .subcommand(
@@ -311,8 +339,8 @@ impl ClapArgumentLoader {
                             .short('o')
                             .long("output")
                             .help("The output format.")
-                            .default_value("yaml")
-                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
+                            .default_value(formats.first().unwrap())
+                            .value_parser(formats.clone()),
                     ),
             )
             .subcommand(
@@ -330,8 +358,8 @@ impl ClapArgumentLoader {
                             .short('o')
                             .long("output")
                             .help("The output format.")
-                            .default_value("yaml")
-                            .value_parser(["yaml", "json", "json+p", "toml", "ron", "ron+p"]),
+                            .default_value(formats.first().unwrap())
+                            .value_parser(formats.clone()),
                     ),
             )
     }
