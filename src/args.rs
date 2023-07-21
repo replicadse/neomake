@@ -8,7 +8,7 @@ use std::{
 
 use clap::{Arg, ArgAction};
 
-use crate::{error::Error, model::ExecutionPlan};
+use crate::{error::Error, plan::ExecutionPlan};
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Privilege {

@@ -10,6 +10,7 @@ pub mod args;
 pub mod error;
 pub mod model;
 pub mod output;
+pub mod plan;
 pub mod reference;
 pub mod workflow;
 
@@ -84,7 +85,7 @@ async fn main() -> Result<(), crate::error::Error> {
             format,
         } => {
             let m = model::Workflow::load(&workflow)?;
-            m.plan(&nodes, &format).await?;
+            m.describe(&nodes, &format).await?;
             Ok(())
         },
     }

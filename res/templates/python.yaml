@@ -3,14 +3,16 @@ version: "0.5"
 nodes:
   count:
     matrix:
-      - - env:
-            X: "0"
-        - env:
-            X: "1"
-      - - env:
-            Y: "0"
-        - env:
-            Y: "1"
+      dense:
+        dimensions:
+          - - env:
+                X: "0"
+            - env:
+                X: "1"
+          - - env:
+                Y: "0"
+            - env:
+                Y: "1"
     tasks:
       - shell:
           program: "python3"

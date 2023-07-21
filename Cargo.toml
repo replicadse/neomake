@@ -35,6 +35,7 @@ threadpool = "^1.8"
 schemars = "0.8.12"
 toml = "0.7.6"
 ron = "0.8.0"
+fancy-regex = "0.11.0"
 
 [dev-dependencies]
 rusty-hook = "0.11.2"

@@ -3,10 +3,12 @@ version: "0.5"
 nodes:
   build:
     matrix:
-      - - env:
-            RELEASE: ""
-        - env:
-            RELEASE: "--release"
+      dense:
+        dimensions:
+          - - env:
+                RELEASE: ""
+            - env:
+                RELEASE: "--release"
     tasks:
       - script: |
           set -e
