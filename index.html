@@ -259,7 +259,7 @@ env:
 .anchor: &amp;anchor |
   printf &quot;test anchor&quot;
 
-chains:
+nodes:
   python:
     description: This is an example of using multiple execution environments (shell and python).
     shell:
@@ -267,10 +267,12 @@ chains:
       args:
         - -c
     matrix:
-      - - env:
-            PRINT_VAL: value 0
-        - env:
-            PRINT_VAL: value 1
+      dense:
+        dimensions:
+          - - env:
+                PRINT_VAL: value 0
+            - env:
+                PRINT_VAL: value 1
     tasks:
       - shell:
           program: python
@@ -282,20 +284,22 @@ chains:
 
   a:
     matrix:
-      - - env:
-            VA: A0
-        - env:
-            VA: A1
-      - - env:
-            VB: B0
-        - env:
-            VB: B1
-        - env:
-            VB: B2
-      - - env:
-            VC: C0
-        - env:
-            VC: C1
+      dense:
+        dimensions:
+          - - env:
+                VA: A0
+            - env:
+                VA: A1
+          - - env:
+                VB: B0
+            - env:
+                VB: B1
+            - env:
+                VB: B2
+          - - env:
+                VC: C0
+            - env:
+                VC: C1
     tasks:
       - script: echo &quot;$VA $VB $VC&quot;
   b:
@@ -326,8 +330,10 @@ chains:
 
   test:
     matrix:
-      - - env:
-            OVERRIDE_ENV_VAR_0: new e0
+      dense:
+        dimensions:
+          - - env:
+                OVERRIDE_ENV_VAR_0: new e0
     tasks:
       - env:
           OVERRIDE_ENV_VAR_1: new e1
@@ -358,20 +364,23 @@ chains:
 <h2 id="schema"><a class="header" href="#schema">Schema</a></h2>
 <pre><code class="language-json">{
   &quot;$schema&quot;: &quot;http://json-schema.org/draft-07/schema#&quot;,
-  &quot;title&quot;: &quot;Config&quot;,
+  &quot;title&quot;: &quot;Workflow&quot;,
+  &quot;description&quot;: &quot;The entire workflow definition.&quot;,
   &quot;type&quot;: &quot;object&quot;,
   &quot;required&quot;: [
-    &quot;chains&quot;,
+    &quot;nodes&quot;,
     &quot;version&quot;
   ],
   &quot;properties&quot;: {
-    &quot;chains&quot;: {
-      &quot;type&quot;: &quot;object&quot;,
-      &quot;additionalProperties&quot;: {
-        &quot;$ref&quot;: &quot;#/definitions/Chain&quot;
-      }
+    &quot;capture&quot;: {
+      &quot;description&quot;: &quot;RegEx for capturing env vars at plan time + baking these into the plan.&quot;,
+      &quot;type&quot;: [
+        &quot;string&quot;,
+        &quot;null&quot;
+      ]
     },
     &quot;env&quot;: {
+      &quot;description&quot;: &quot;Explicitly set env vars.&quot;,
       &quot;type&quot;: [
         &quot;object&quot;,
         &quot;null&quot;
@@ -380,24 +389,129 @@ chains:
         &quot;type&quot;: &quot;string&quot;
       }
     },
+    &quot;nodes&quot;: {
+      &quot;description&quot;: &quot;All nodes.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: {
+        &quot;$ref&quot;: &quot;#/definitions/Node&quot;
+      }
+    },
     &quot;version&quot;: {
+      &quot;description&quot;: &quot;The version of this workflow file (major.minor).&quot;,
       &quot;type&quot;: &quot;string&quot;
     }
   },
   &quot;definitions&quot;: {
-    &quot;Chain&quot;: {
+    &quot;Matrix&quot;: {
+      &quot;description&quot;: &quot;An entry in the n-dimensional matrix for the node execution.&quot;,
+      &quot;oneOf&quot;: [
+        {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;required&quot;: [
+            &quot;dense&quot;
+          ],
+          &quot;properties&quot;: {
+            &quot;dense&quot;: {
+              &quot;type&quot;: &quot;object&quot;,
+              &quot;required&quot;: [
+                &quot;dimensions&quot;
+              ],
+              &quot;properties&quot;: {
+                &quot;dimensions&quot;: {
+                  &quot;type&quot;: &quot;array&quot;,
+                  &quot;items&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                      &quot;$ref&quot;: &quot;#/definitions/MatrixCell&quot;
+                    }
+                  }
+                },
+                &quot;drop&quot;: {
+                  &quot;type&quot;: [
+                    &quot;string&quot;,
+                    &quot;null&quot;
+                  ]
+                }
+              },
+              &quot;additionalProperties&quot;: false
+            }
+          },
+          &quot;additionalProperties&quot;: false
+        },
+        {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;required&quot;: [
+            &quot;sparse&quot;
+          ],
+          &quot;properties&quot;: {
+            &quot;sparse&quot;: {
+              &quot;type&quot;: &quot;object&quot;,
+              &quot;required&quot;: [
+                &quot;dimensions&quot;
+              ],
+              &quot;properties&quot;: {
+                &quot;dimensions&quot;: {
+                  &quot;type&quot;: &quot;array&quot;,
+                  &quot;items&quot;: {
+                    &quot;type&quot;: &quot;array&quot;,
+                    &quot;items&quot;: {
+                      &quot;$ref&quot;: &quot;#/definitions/MatrixCell&quot;
+                    }
+                  }
+                },
+                &quot;keep&quot;: {
+                  &quot;type&quot;: [
+                    &quot;string&quot;,
+                    &quot;null&quot;
+                  ]
+                }
+              },
+              &quot;additionalProperties&quot;: false
+            }
+          },
+          &quot;additionalProperties&quot;: false
+        }
+      ]
+    },
+    &quot;MatrixCell&quot;: {
+      &quot;description&quot;: &quot;An entry in the n-dimensional matrix for the node execution.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;properties&quot;: {
+        &quot;env&quot;: {
+          &quot;type&quot;: [
+            &quot;object&quot;,
+            &quot;null&quot;
+          ],
+          &quot;additionalProperties&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          }
+        }
+      },
+      &quot;additionalProperties&quot;: false
+    },
+    &quot;Node&quot;: {
+      &quot;description&quot;: &quot;An individual node for executing a task batch.&quot;,
       &quot;type&quot;: &quot;object&quot;,
       &quot;required&quot;: [
         &quot;tasks&quot;
       ],
       &quot;properties&quot;: {
+        &quot;capture&quot;: {
+          &quot;description&quot;: &quot;RegEx for capturing env vars at plan time + baking these into the plan.&quot;,
+          &quot;type&quot;: [
+            &quot;string&quot;,
+            &quot;null&quot;
+          ]
+        },
         &quot;description&quot;: {
+          &quot;description&quot;: &quot;A description of this node.&quot;,
           &quot;type&quot;: [
             &quot;string&quot;,
             &quot;null&quot;
           ]
         },
         &quot;env&quot;: {
+          &quot;description&quot;: &quot;Explicitly set env vars.&quot;,
           &quot;type&quot;: [
             &quot;object&quot;,
             &quot;null&quot;
@@ -407,18 +521,18 @@ chains:
           }
         },
         &quot;matrix&quot;: {
-          &quot;type&quot;: [
-            &quot;array&quot;,
-            &quot;null&quot;
-          ],
-          &quot;items&quot;: {
-            &quot;type&quot;: &quot;array&quot;,
-            &quot;items&quot;: {
-              &quot;$ref&quot;: &quot;#/definitions/MatrixEntry&quot;
+          &quot;description&quot;: &quot;An n-dimensional matrix that is executed for every item in its cartesian product.&quot;,
+          &quot;anyOf&quot;: [
+            {
+              &quot;$ref&quot;: &quot;#/definitions/Matrix&quot;
+            },
+            {
+              &quot;type&quot;: &quot;null&quot;
             }
-          }
+          ]
         },
         &quot;pre&quot;: {
+          &quot;description&quot;: &quot;Reference nodes that need to be executed prior to this one.&quot;,
           &quot;type&quot;: [
             &quot;array&quot;,
             &quot;null&quot;
@@ -428,6 +542,7 @@ chains:
           }
         },
         &quot;shell&quot;: {
+          &quot;description&quot;: &quot;Custom program to execute the scripts.&quot;,
           &quot;anyOf&quot;: [
             {
               &quot;$ref&quot;: &quot;#/definitions/Shell&quot;
@@ -438,12 +553,14 @@ chains:
           ]
         },
         &quot;tasks&quot;: {
+          &quot;description&quot;: &quot;The tasks to be executed.&quot;,
           &quot;type&quot;: &quot;array&quot;,
           &quot;items&quot;: {
             &quot;$ref&quot;: &quot;#/definitions/Task&quot;
           }
         },
         &quot;workdir&quot;: {
+          &quot;description&quot;: &quot;Custom workdir.&quot;,
           &quot;type&quot;: [
             &quot;string&quot;,
             &quot;null&quot;
@@ -452,22 +569,8 @@ chains:
       },
       &quot;additionalProperties&quot;: false
     },
-    &quot;MatrixEntry&quot;: {
-      &quot;type&quot;: &quot;object&quot;,
-      &quot;properties&quot;: {
-        &quot;env&quot;: {
-          &quot;type&quot;: [
-            &quot;object&quot;,
-            &quot;null&quot;
-          ],
-          &quot;additionalProperties&quot;: {
-            &quot;type&quot;: &quot;string&quot;
-          }
-        }
-      },
-      &quot;additionalProperties&quot;: false
-    },
     &quot;Shell&quot;: {
+      &quot;description&quot;: &quot;A task execution environment.&quot;,
       &quot;type&quot;: &quot;object&quot;,
       &quot;required&quot;: [
         &quot;args&quot;,
@@ -475,24 +578,28 @@ chains:
       ],
       &quot;properties&quot;: {
         &quot;args&quot;: {
+          &quot;description&quot;: &quot;Custom args (like \\[\&quot;-c\&quot;\\]).&quot;,
           &quot;type&quot;: &quot;array&quot;,
           &quot;items&quot;: {
             &quot;type&quot;: &quot;string&quot;
           }
         },
         &quot;program&quot;: {
+          &quot;description&quot;: &quot;The program (like \&quot;/bin/bash\&quot;).&quot;,
           &quot;type&quot;: &quot;string&quot;
         }
       },
       &quot;additionalProperties&quot;: false
     },
     &quot;Task&quot;: {
+      &quot;description&quot;: &quot;An individual task.&quot;,
       &quot;type&quot;: &quot;object&quot;,
       &quot;required&quot;: [
         &quot;script&quot;
       ],
       &quot;properties&quot;: {
         &quot;env&quot;: {
+          &quot;description&quot;: &quot;Explicitly set env vars.&quot;,
           &quot;type&quot;: [
             &quot;object&quot;,
             &quot;null&quot;
@@ -502,9 +609,11 @@ chains:
           }
         },
         &quot;script&quot;: {
+          &quot;description&quot;: &quot;The script content to execute. Can contain handlebars placeholders.&quot;,
           &quot;type&quot;: &quot;string&quot;
         },
         &quot;shell&quot;: {
+          &quot;description&quot;: &quot;Custom program to execute the scripts.&quot;,
           &quot;anyOf&quot;: [
             {
               &quot;$ref&quot;: &quot;#/definitions/Shell&quot;
@@ -515,6 +624,7 @@ chains:
           ]
         },
         &quot;workdir&quot;: {
+          &quot;description&quot;: &quot;Custom workdir.&quot;,
           &quot;type&quot;: [
             &quot;string&quot;,
             &quot;null&quot;

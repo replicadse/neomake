@@ -173,11 +173,11 @@
 <li><a href="#neomake"><code>neomake</code>↴</a></li>
 <li><a href="#neomake-man"><code>neomake man</code>↴</a></li>
 <li><a href="#neomake-autocomplete"><code>neomake autocomplete</code>↴</a></li>
-<li><a href="#neomake-config"><code>neomake config</code>↴</a></li>
-<li><a href="#neomake-config-init"><code>neomake config init</code>↴</a></li>
-<li><a href="#neomake-config-schema"><code>neomake config schema</code>↴</a></li>
-<li><a href="#neomake-execute"><code>neomake execute</code>↴</a></li>
+<li><a href="#neomake-workflow"><code>neomake workflow</code>↴</a></li>
+<li><a href="#neomake-workflow-init"><code>neomake workflow init</code>↴</a></li>
+<li><a href="#neomake-workflow-schema"><code>neomake workflow schema</code>↴</a></li>
 <li><a href="#neomake-plan"><code>neomake plan</code>↴</a></li>
+<li><a href="#neomake-execute"><code>neomake execute</code>↴</a></li>
 <li><a href="#neomake-describe"><code>neomake describe</code>↴</a></li>
 <li><a href="#neomake-list"><code>neomake list</code>↴</a></li>
 </ul>
@@ -188,15 +188,15 @@
 <ul>
 <li><code>man</code> — Renders the manual.</li>
 <li><code>autocomplete</code> — Renders shell completion scripts.</li>
-<li><code>config</code> — Config related subcommands.</li>
-<li><code>execute</code> — Executes task chains.</li>
-<li><code>plan</code> — Plans an execution of task chains.</li>
-<li><code>describe</code> — Describe the execution graph for given task chain configuration(s).</li>
-<li><code>list</code> — Lists all available task chains.</li>
+<li><code>workflow</code> — Workflow related subcommands.</li>
+<li><code>plan</code> — Creates an execution plan.</li>
+<li><code>execute</code> — Executes an execution plan.</li>
+<li><code>describe</code> — Describes which nodes are executed in which stages.</li>
+<li><code>list</code> — Lists all available nodes.</li>
 </ul>
 <h6 id="options"><a class="header" href="#options"><strong>Options:</strong></a></h6>
 <ul>
-<li><code>-e</code>, <code>--experimental &lt;EXPERIMENTAL&gt;</code> — enables experimental features</li>
+<li><code>-e</code>, <code>--experimental &lt;EXPERIMENTAL&gt;</code> — Enables experimental features.</li>
 </ul>
 <h2 id="neomake-man"><a class="header" href="#neomake-man"><code>neomake man</code></a></h2>
 <p>Renders the manual.</p>
@@ -224,17 +224,17 @@
 <p>Possible values: <code>bash</code>, <code>zsh</code>, <code>fish</code>, <code>elvish</code>, <code>powershell</code></p>
 </li>
 </ul>
-<h2 id="neomake-config"><a class="header" href="#neomake-config"><code>neomake config</code></a></h2>
-<p>Config related subcommands.</p>
-<p><strong>Usage:</strong> <code>neomake config [COMMAND]</code></p>
+<h2 id="neomake-workflow"><a class="header" href="#neomake-workflow"><code>neomake workflow</code></a></h2>
+<p>Workflow related subcommands.</p>
+<p><strong>Usage:</strong> <code>neomake workflow [COMMAND]</code></p>
 <h6 id="subcommands-1"><a class="header" href="#subcommands-1"><strong>Subcommands:</strong></a></h6>
 <ul>
-<li><code>init</code> — Initializes a new default configuration in the current folder.</li>
-<li><code>schema</code> — Renders the schema for the config.</li>
+<li><code>init</code> — Initializes a new template workflow.</li>
+<li><code>schema</code> — Renders the workflow schema to STDOUT.</li>
 </ul>
-<h2 id="neomake-config-init"><a class="header" href="#neomake-config-init"><code>neomake config init</code></a></h2>
-<p>Initializes a new default configuration in the current folder.</p>
-<p><strong>Usage:</strong> <code>neomake config init [OPTIONS]</code></p>
+<h2 id="neomake-workflow-init"><a class="header" href="#neomake-workflow-init"><code>neomake workflow init</code></a></h2>
+<p>Initializes a new template workflow.</p>
+<p><strong>Usage:</strong> <code>neomake workflow init [OPTIONS]</code></p>
 <h6 id="options-3"><a class="header" href="#options-3"><strong>Options:</strong></a></h6>
 <ul>
 <li>
@@ -247,62 +247,62 @@
 <p>Default value: <code>./.neomake.yaml</code></p>
 </li>
 </ul>
-<h2 id="neomake-config-schema"><a class="header" href="#neomake-config-schema"><code>neomake config schema</code></a></h2>
-<p>Renders the schema for the config.</p>
-<p><strong>Usage:</strong> <code>neomake config schema</code></p>
-<h2 id="neomake-execute"><a class="header" href="#neomake-execute"><code>neomake execute</code></a></h2>
-<p>Executes task chains.</p>
-<p><strong>Usage:</strong> <code>neomake execute [OPTIONS]</code></p>
+<h2 id="neomake-workflow-schema"><a class="header" href="#neomake-workflow-schema"><code>neomake workflow schema</code></a></h2>
+<p>Renders the workflow schema to STDOUT.</p>
+<p><strong>Usage:</strong> <code>neomake workflow schema</code></p>
+<h2 id="neomake-plan"><a class="header" href="#neomake-plan"><code>neomake plan</code></a></h2>
+<p>Creates an execution plan.</p>
+<p><strong>Usage:</strong> <code>neomake plan [OPTIONS]</code></p>
 <h6 id="options-4"><a class="header" href="#options-4"><strong>Options:</strong></a></h6>
+<ul>
+<li>
+<p><code>--workflow &lt;WORKFLOW&gt;</code> — The workflow file to use.</p>
+<p>Default value: <code>./.neomake.yaml</code></p>
+</li>
+<li>
+<p><code>-n</code>, <code>--node &lt;NODE&gt;</code> — Adding a node to the plan.</p>
+</li>
+<li>
+<p><code>-a</code>, <code>--arg &lt;ARG&gt;</code> — Specifies a value for handlebars placeholders.</p>
+</li>
+<li>
+<p><code>-o</code>, <code>--output &lt;OUTPUT&gt;</code> — Specifies the output format.</p>
+<p>Default value: <code>yaml</code></p>
+<p>Possible values: <code>yaml</code>, <code>json</code>, <code>json+p</code>, <code>toml</code>, <code>ron</code>, <code>ron+p</code></p>
+</li>
+</ul>
+<h2 id="neomake-execute"><a class="header" href="#neomake-execute"><code>neomake execute</code></a></h2>
+<p>Executes an execution plan.</p>
+<p><strong>Usage:</strong> <code>neomake execute [OPTIONS]</code></p>
+<h6 id="options-5"><a class="header" href="#options-5"><strong>Options:</strong></a></h6>
 <ul>
 <li>
 <p><code>-f</code>, <code>--format &lt;FORMAT&gt;</code> — The format of the execution plan.</p>
 <p>Default value: <code>-</code></p>
 </li>
 <li>
-<p><code>-w</code>, <code>--workers &lt;WORKERS&gt;</code> — Defines how many worker threads are used for tasks that can be executed in parllel.</p>
+<p><code>-w</code>, <code>--workers &lt;WORKERS&gt;</code> — Defines how many worker threads are created in the OS thread pool.</p>
 <p>Default value: <code>1</code></p>
 </li>
 <li>
-<p><code>-p</code>, <code>--prefix &lt;PREFIX&gt;</code> — The prefix to use for output to STDOUT.</p>
+<p><code>-p</code>, <code>--prefix &lt;PREFIX&gt;</code> — The prefix for child process output that gets printed to STDOUT.</p>
 <p>Default value: <code>==&gt; </code></p>
 </li>
 <li>
-<p><code>-s</code>, <code>--silent &lt;SILENT&gt;</code> — Disables STDOUT output of child processes.</p>
-</li>
-</ul>
-<h2 id="neomake-plan"><a class="header" href="#neomake-plan"><code>neomake plan</code></a></h2>
-<p>Plans an execution of task chains.</p>
-<p><strong>Usage:</strong> <code>neomake plan [OPTIONS]</code></p>
-<h6 id="options-5"><a class="header" href="#options-5"><strong>Options:</strong></a></h6>
-<ul>
-<li>
-<p><code>-f</code>, <code>--config &lt;CONFIG&gt;</code> — The configuration file to use.</p>
-<p>Default value: <code>./.neomake.yaml</code></p>
-</li>
-<li>
-<p><code>-c</code>, <code>--chain &lt;CHAIN&gt;</code> — Which chain to execute.</p>
-</li>
-<li>
-<p><code>-a</code>, <code>--arg &lt;ARG&gt;</code> — An argument to the chain.</p>
-</li>
-<li>
-<p><code>-o</code>, <code>--output &lt;OUTPUT&gt;</code> — The output format.</p>
-<p>Default value: <code>yaml</code></p>
-<p>Possible values: <code>yaml</code>, <code>json</code>, <code>json+p</code>, <code>toml</code>, <code>ron</code>, <code>ron+p</code></p>
+<p><code>-s</code>, <code>--silent &lt;SILENT&gt;</code> — Disables any output to STDOUT. Useful for preventing leakage of secrets.</p>
 </li>
 </ul>
 <h2 id="neomake-describe"><a class="header" href="#neomake-describe"><code>neomake describe</code></a></h2>
-<p>Describe the execution graph for given task chain configuration(s).</p>
+<p>Describes which nodes are executed in which stages.</p>
 <p><strong>Usage:</strong> <code>neomake describe [OPTIONS]</code></p>
 <h6 id="options-6"><a class="header" href="#options-6"><strong>Options:</strong></a></h6>
 <ul>
 <li>
-<p><code>-f</code>, <code>--config &lt;CONFIG&gt;</code> — The configuration file to use.</p>
+<p><code>--workflow &lt;WORKFLOW&gt;</code> — The workflow file to use.</p>
 <p>Default value: <code>./.neomake.yaml</code></p>
 </li>
 <li>
-<p><code>-c</code>, <code>--chain &lt;CHAIN&gt;</code> — Which chain to execute.</p>
+<p><code>-n</code>, <code>--node &lt;NODE&gt;</code> — Adding a node.</p>
 </li>
 <li>
 <p><code>-o</code>, <code>--output &lt;OUTPUT&gt;</code> — The output format.</p>
@@ -311,12 +311,12 @@
 </li>
 </ul>
 <h2 id="neomake-list"><a class="header" href="#neomake-list"><code>neomake list</code></a></h2>
-<p>Lists all available task chains.</p>
+<p>Lists all available nodes.</p>
 <p><strong>Usage:</strong> <code>neomake list [OPTIONS]</code></p>
 <h6 id="options-7"><a class="header" href="#options-7"><strong>Options:</strong></a></h6>
 <ul>
 <li>
-<p><code>-f</code>, <code>--config &lt;CONFIG&gt;</code> — The configuration file to use.</p>
+<p><code>--workflow &lt;WORKFLOW&gt;</code> — The workflow file to use.</p>
 <p>Default value: <code>./.neomake.yaml</code></p>
 </li>
 <li>
