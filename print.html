@@ -173,14 +173,12 @@
 <p><code>neomake</code> is released and  <strong>stable</strong>. It is actively maintained and used in production.</p>
 <h2 id="features"><a class="header" href="#features">Features</a></h2>
 <ul>
-<li><strong>Task chains</strong><br />
-Execute many tasks in sequence, easily re-use single tasks using YAML anchors.</li>
-<li><strong>Task chain graphs</strong><br />
-Per task chain, you can specify a list of other task chains that are required as a prerequisite for this one to run. This can be used to build more complex graphs of tasks. All task chains, are collected in a recursive manner and deduped. They are executed in a leaf-first fashion in which the first stages of execution contain task chains with no preconditions, moving forwards through task chains containing preconditions that already run, finally leading to the entire graph being executed. Use <code>neomake describe -c ...</code> to view the task chains and the stages (in order) they are executed in.</li>
+<li><strong>DAG execution</strong><br />
+Tasks are run in nodes. Nodes can be chained together to create a DAG. Simply specify all the nodes you want executed and it will automagically create the DAG based on the defined dependencies.</li>
 <li><strong>Parallel task execution</strong><br />
-All tasks inside of the same stage can be executed in parallel. Furthermore, all invocations of the contained task chains as defined per the cartesian product of the invocation matrix can also be executed in parallel. Stages as well as tasks inside of a single task chain are always executed in sequence. You can define the number of worker threads via the <code>-w</code> flag.</li>
-<li><strong>Multidimensional invocation matrices</strong><br />
-Invoke task chains many times by specifying multiple dimensions with variable lengths in a matrix that's used for parameterizing a seperate chain execution. This feature is heavily inspired by the GitLab pipeline's parallel matrix builds but adds the feature of executing all elements in the cartesian product of the matrix dimensions.</li>
+The DAG generations are called stages. Stages are executed in sequence while all tasks inside of the stages are executed in parallel. Workloads are executed in OS threads. The default size of the threadpool is 1 but can be configured.</li>
+<li><strong>Matrix invocations</strong><br />
+Specify n-dimensional matrices that are used to invoke the node many times. You can define dense and sparse matrices. The node will be executed for every element in the cartesion product of the matrix.</li>
 <li><strong>YAML</strong><br />
 No need for any fancy configuration formats or syntax. The entire configuration is done in an easy to understand <code>yaml</code> file, including support for handy features such as YAML anchors (and everything in the <code>YAML 1.2</code> standard).</li>
 <li><strong>Customizable environment</strong><br />
@@ -198,24 +196,24 @@ Supporting execution of commands in two stages. First plan and render the entire
 </ol>
 <h2 id="example"><a class="header" href="#example">Example</a></h2>
 <p>First, initialize an example workflow file with the following command.</p>
-<pre><code class="language-bash">neomake config init -tpython
+<pre><code class="language-bash">neomake workflow init -tpython
 </code></pre>
-<p>Now, execute the <code>count</code> chain. Per default, <code>neomake</code> will only use exactly one worker thread and execute the endless embedded python program.</p>
+<p>Now, execute the <code>count</code> node. Per default, <code>neomake</code> will only use exactly one worker thread and execute the endless embedded python program.</p>
 <pre><code class="language-bash">neomake plan -ccount | neomake x -fyaml
 </code></pre>
 <p>In order to work on all 4 desired executions (defined as 2x2 matrix), call neomake with the number of worker threads desired. Now you will see that the 4 programs will be executed in parallel.</p>
 <pre><code class="language-bash">neomake plan -ccount | neomake x -fyaml -w4
 </code></pre>
 <h2 id="graph-execution"><a class="header" href="#graph-execution">Graph execution</a></h2>
-<p>Execute command chains as follows.</p>
+<p>Execute nodes as follows.</p>
 <pre><code class="language-bash">neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oyaml | neomake execute -fyaml
 </code></pre>
-<p>Task chains can have prerequisites which are in turn other task chains. All invocations across any task chain are deduplicated so that every task chain is only executed exactly once if requested for invocation or as a prerequisite on any level to any task chain that is to be executed. Alongside the ability to specify multiple task chains to be executed per command line call, this feature allows for complex workflows to be executed.<br />
-Let's assume the following graph of task chains and their dependencies:</p>
+<p>Nodes can define an array of dependenies (other nodes) that need to be executed beforehand. All node executions are deduplicated so that every node is only executed exactly once if requested for invocation or as a prerequisite on any level to any node that is to be executed. Alongside the ability to specify multiple node to be executed per command line call, this feature allows for complex workflows to be executed.<br />
+Let's assume the following graph of nodes and their dependencies:</p>
 <pre><code class="language-bash">neomake ls
 </code></pre>
 <pre><code class="language-yaml">---
-chains:
+nodes:
   - name: A
   - name: B
   - name: C
@@ -240,7 +238,7 @@ stages:
   - - D
   - - E
 </code></pre>
-<p>Stages need to run sequentially due to their task chains dependency on tasks chains executed in a previous stage. Tasks inside a stage are run in parallel (in an OS thread pool of the size given to the <code>worker</code> argument). <code>neomake</code> is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.</p>
+<p>Stages need to run sequentially due to their nodes dependency on nodes executed in a previous stage. Tasks inside a stage are run in parallel (in an OS thread pool of the size given to the <code>worker</code> argument). <code>neomake</code> is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.</p>
 <h2 id="why"><a class="header" href="#why">Why</a></h2>
 <p>Why would someone build a task runner if there's many alternatives out there? A few of the most well known task running utilities / frameworks are (non exhaustive):</p>
 <ul>
