@@ -285,6 +285,7 @@ nodes:
   a:
     matrix:
       dense:
+        drop: &quot;^(0,0,0)$&quot;
         dimensions:
           - - env:
                 VA: A0
@@ -308,10 +309,23 @@ nodes:
     tasks:
       - script: echo &quot;b&quot;
   c:
+    matrix:
+      sparse:
+        keep: &quot;^(1,1)$&quot;
+        dimensions:
+          - - env:
+                VA: A0
+            - env:
+                VA: A1
+          - - env:
+                VB: B0
+            - env:
+                VB: B1
     pre:
       - b
     tasks:
-      - script: echo &quot;c&quot;
+      - script: |
+          echo &quot;$VA $VB&quot;
 
   minimal:
     tasks:
