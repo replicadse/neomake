@@ -24,3 +24,14 @@ nodes:
           export CARGO_FLAGS="$F_JSON $F_TOML $F_RON $RELEASE"
           echo $CARGO_FLAGS
           cargo build $CARGO_FLAGS
+
+  test:
+    tasks:
+      - script: |
+          cargo test --no-fail-fast
+
+  hook:pre-push:
+    pre:
+      - build
+      - test
+    tasks: []

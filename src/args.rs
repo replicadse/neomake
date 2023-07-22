@@ -7,6 +7,7 @@ use std::{
 };
 
 use clap::{Arg, ArgAction};
+use itertools::Itertools;
 
 use crate::{error::Error, plan::ExecutionPlan};
 
@@ -183,14 +184,15 @@ pub(crate) struct ClapArgumentLoader {}
 impl ClapArgumentLoader {
     pub(crate) fn root_command() -> clap::Command {
         #[allow(unused_mut)] // features will add
-        let mut formats = vec!["yaml"];
+        let mut output_formats = vec!["yaml"];
         #[cfg(feature = "format_json")]
-        formats.extend(["json", "json+p"]);
+        output_formats.extend(["json", "json+p"]);
         #[cfg(feature = "format_toml")]
-        formats.push("toml");
+        output_formats.push("toml");
         #[cfg(feature = "format_ron")]
-        formats.extend(["ron", "ron+p"]);
-        assert!(formats.len() > 0);
+        output_formats.extend(["ron", "ron+p"]);
+        let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec(); // +p is only for the pretty
+        assert!(output_formats.len() > 0);
 
         clap::Command::new("neomake")
             .version(env!("CARGO_PKG_VERSION"))
@@ -280,8 +282,8 @@ impl ClapArgumentLoader {
                             .short('o')
                             .long("output")
                             .help("Specifies the output format.")
-                            .default_value(formats.first().unwrap())
-                            .value_parser(formats.clone()),
+                            .value_parser(output_formats.clone())
+                            .default_value(output_formats.first().unwrap()),
                     ),
             )
             .subcommand(
@@ -293,7 +295,8 @@ impl ClapArgumentLoader {
                             .short('f')
                             .long("format")
                             .help("The format of the execution plan.")
-                            .default_value("-"),
+                            .value_parser(input_formats.clone())
+                            .default_value(*input_formats.first().unwrap()),
                     )
                     .arg(
                         Arg::new("workers")
@@ -339,8 +342,8 @@ impl ClapArgumentLoader {
                             .short('o')
                             .long("output")
                             .help("The output format.")
-                            .default_value(formats.first().unwrap())
-                            .value_parser(formats.clone()),
+                            .value_parser(output_formats.clone())
+                            .default_value(output_formats.first().unwrap()),
                     ),
             )
             .subcommand(
@@ -358,8 +361,8 @@ impl ClapArgumentLoader {
                             .short('o')
                             .long("output")
                             .help("The output format.")
-                            .default_value(formats.first().unwrap())
-                            .value_parser(formats.clone()),
+                            .value_parser(output_formats.clone())
+                            .default_value(output_formats.first().unwrap()),
                     ),
             )
     }
