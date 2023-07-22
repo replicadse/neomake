@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
+use crate::error::Error;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")] // can not deny unknown fields to support YAML anchors
 /// The entire workflow definition.
@@ -14,6 +16,27 @@ pub(crate) struct Workflow {
     pub env: Option<HashMap<String, String>>,
     /// All nodes.
     pub nodes: HashMap<String, Node>,
+}
+
+impl Workflow {
+    pub fn load(data: &str) -> Result<Self, Error> {
+        #[derive(Debug, serde::Deserialize)]
+        struct Versioned {
+            version: String,
+        }
+        let v = serde_yaml::from_str::<Versioned>(data)?;
+
+        if v.version != "0.5" {
+            Err(Error::VersionCompatibility(format!(
+                "workflow version {} is incompatible with this CLI version {}",
+                v.version,
+                env!("CARGO_PKG_VERSION")
+            )))?
+        }
+
+        let wf: crate::workflow::Workflow = serde_yaml::from_str(&data)?;
+        Ok(wf)
+    }
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

@@ -12,11 +12,11 @@ use crate::{
     plan,
 };
 
-pub(crate) struct ExecEngine {
+pub(crate) struct ExecutionEngine {
     pub output: Arc<Mutex<output::Controller>>,
 }
 
-impl ExecEngine {
+impl ExecutionEngine {
     pub fn new(prefix: String, silent: bool) -> Self {
         Self {
             output: Arc::new(Mutex::new(Controller::new(

@@ -1,9 +1,9 @@
 include!("check_features.rs");
 
 pub mod args;
+pub mod compiler;
 pub mod error;
 pub mod exec;
-pub mod model;
 pub mod output;
 pub mod plan;
 pub mod reference;
@@ -13,7 +13,9 @@ use std::path::PathBuf;
 use std::result::Result;
 
 use args::{InitOutput, ManualFormat};
-use exec::ExecEngine;
+use exec::ExecutionEngine;
+
+use crate::{compiler::Compiler, workflow::Workflow};
 
 #[tokio::main]
 async fn main() -> Result<(), crate::error::Error> {
@@ -60,7 +62,7 @@ async fn main() -> Result<(), crate::error::Error> {
             prefix,
             silent,
         } => {
-            let exec_engine = ExecEngine::new(prefix, silent);
+            let exec_engine = ExecutionEngine::new(prefix, silent);
             exec_engine.execute(plan, workers).await?;
             Ok(())
         },
@@ -70,14 +72,16 @@ async fn main() -> Result<(), crate::error::Error> {
             args,
             format,
         } => {
-            let m = model::Workflow::load(&workflow)?;
-            let x = m.render_exec(&nodes, &args).await?;
+            let w = Workflow::load(&workflow)?;
+            let c = Compiler::new(w);
+            let x = c.plan(&nodes, &args).await?;
             print!("{}", format.serialize(&x)?);
             Ok(())
         },
         | crate::args::Command::List { workflow, format } => {
-            let m = model::Workflow::load(&workflow)?;
-            m.list(&format).await?;
+            let w = Workflow::load(&workflow)?;
+            let c = Compiler::new(w);
+            c.list(&format).await?;
             Ok(())
         },
         | crate::args::Command::Describe {
@@ -85,8 +89,9 @@ async fn main() -> Result<(), crate::error::Error> {
             nodes,
             format,
         } => {
-            let m = model::Workflow::load(&workflow)?;
-            m.describe(&nodes, &format).await?;
+            let w = Workflow::load(&workflow)?;
+            let c = Compiler::new(w);
+            c.describe(&nodes, &format).await?;
             Ok(())
         },
     }

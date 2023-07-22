@@ -5,8 +5,7 @@ nodes:
     matrix:
       dense:
         dimensions:
-          - - env:
-                RELEASE: ""
+          - - env: {}
             - env:
                 RELEASE: "--release"
           - - env: {}

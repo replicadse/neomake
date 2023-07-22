@@ -5,59 +5,37 @@ use std::{
 
 use itertools::Itertools;
 
-use crate::{error::Error, plan};
+use crate::{error::Error, plan, workflow::Workflow};
 
-pub(crate) struct Workflow {
-    pub nodes: HashMap<String, crate::workflow::Node>,
-    pub env: HashMap<String, String>,
-    pub capture: Option<String>,
+pub(crate) struct Compiler {
+    pub workflow: Workflow,
 }
 
-impl Workflow {
-    pub fn load(data: &str) -> Result<Self, Error> {
-        #[derive(Debug, serde::Deserialize)]
-        struct Versioned {
-            version: String,
-        }
-        let v = serde_yaml::from_str::<Versioned>(data)?;
-
-        if v.version != "0.5" {
-            Err(Error::VersionCompatibility(format!(
-                "workflow version {} is incompatible with this CLI version {}",
-                v.version,
-                env!("CARGO_PKG_VERSION")
-            )))?
-        }
-
-        let cfg: crate::workflow::Workflow = serde_yaml::from_str(&data)?;
-        Ok(Self {
-            nodes: cfg.nodes,
-            capture: cfg.capture,
-            env: if let Some(e) = cfg.env {
-                e
-            } else {
-                HashMap::<String, String>::new()
-            },
-        })
+impl Compiler {
+    pub fn new(wf: Workflow) -> Self {
+        Self { workflow: wf }
     }
 
-    pub async fn render_exec(
+    pub async fn plan(
         &self,
         nodes: &HashSet<String>,
         args: &HashMap<String, String>,
     ) -> Result<plan::ExecutionPlan, Error> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
-        let arg_vals = self.build_args(args)?;
+        let arg_vals = self.compile_exec_args(args)?;
         let stages = self.determine_order(nodes)?;
 
         let mut plan = plan::ExecutionPlan {
             stages: vec![],
             nodes: HashMap::<_, _>::new(),
-            env: self.env.clone(),
+            env: match &self.workflow.env {
+                | Some(v) => v.clone(),
+                | None => HashMap::<_, _>::new(),
+            },
         };
         // captured env variables
-        if let Some(v) = &self.capture {
+        if let Some(v) = &self.workflow.capture {
             let regex = fancy_regex::Regex::new(v)?;
             let envs = std::env::vars().collect_vec();
             for e in envs {
@@ -70,7 +48,7 @@ impl Workflow {
         for stage in stages {
             let mut rendered_stage = plan::Stage { nodes: vec![] };
             for node in stage {
-                let node_def = &self.nodes[&node];
+                let node_def = &self.workflow.nodes[&node];
                 let mut rendered_node = plan::Node {
                     invocations: vec![],
                     tasks: vec![],
@@ -164,7 +142,7 @@ impl Workflow {
         }
 
         let mut info = Output {
-            nodes: Vec::from_iter(self.nodes.iter().map(|c| OutputNode {
+            nodes: Vec::from_iter(self.workflow.nodes.iter().map(|c| OutputNode {
                 name: c.0.to_owned(),
                 description: c.1.description.clone(),
                 pre: c.1.pre.clone(),
@@ -196,7 +174,7 @@ impl Workflow {
         Ok(())
     }
 
-    fn build_args(&self, args: &HashMap<String, String>) -> Result<serde_json::Value, Error> {
+    fn compile_exec_args(&self, args: &HashMap<String, String>) -> Result<serde_json::Value, Error> {
         fn recursive_add(
             namespace: &mut std::collections::VecDeque<String>,
             parent: &mut serde_json::Value,
@@ -243,7 +221,7 @@ impl Workflow {
             }
             seen.insert(next.clone());
 
-            let c = self.nodes.get(&next);
+            let c = self.workflow.nodes.get(&next);
             if c.is_none() {
                 return Err(Error::NotFound(next.to_owned()));
             }

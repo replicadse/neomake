@@ -191,7 +191,7 @@ impl ClapArgumentLoader {
         output_formats.push("toml");
         #[cfg(feature = "format_ron")]
         output_formats.extend(["ron", "ron+p"]);
-        let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec(); // +p is only for the pretty
+        let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec(); // +p is only for the pretty variants
         assert!(output_formats.len() > 0);
 
         clap::Command::new("neomake")
