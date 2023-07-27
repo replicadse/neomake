@@ -3,8 +3,8 @@ version: "0.5"
 nodes:
   count:
     matrix:
-      drop: "^(1,1)$" # drop cell [1,1]
       dense:
+        drop: "^(1,1)$" # drop cell [1,1]
         dimensions:
           - - env:
                 X: "0"

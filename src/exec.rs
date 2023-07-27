@@ -95,7 +95,7 @@ impl ExecutionEngine {
                                 cmd_proc.arg(&w.command);
 
                                 let loc_out = t_output.clone();
-                                let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
+                                let exit_status = InteractiveProcess::new(&mut cmd_proc, move |l| match l {
                                     | Ok(v) => {
                                         let mut lock = loc_out.lock().unwrap();
                                         lock.print(&v).expect("could not print");

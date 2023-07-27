@@ -3,8 +3,6 @@ use std::{
     iter::FromIterator,
 };
 
-use itertools::Itertools;
-
 use crate::{error::Error, plan, workflow::Workflow};
 
 pub(crate) struct Compiler {
@@ -30,20 +28,10 @@ impl Compiler {
             stages: vec![],
             nodes: HashMap::<_, _>::new(),
             env: match &self.workflow.env {
-                | Some(v) => v.clone(),
+                | Some(v) => v.compile()?,
                 | None => HashMap::<_, _>::new(),
             },
         };
-        // captured env variables
-        if let Some(v) = &self.workflow.capture {
-            let regex = fancy_regex::Regex::new(v)?;
-            let envs = std::env::vars().collect_vec();
-            for e in envs {
-                if regex.is_match(&e.0)? {
-                    plan.env.insert(e.0, e.1);
-                }
-            }
-        }
 
         for stage in stages {
             let mut rendered_stage = plan::Stage { nodes: vec![] };
@@ -53,28 +41,16 @@ impl Compiler {
                     invocations: vec![],
                     tasks: vec![],
 
-                    env: HashMap::<_, _>::new(),
+                    env: match &node_def.env {
+                        | Some(v) => v.compile()?,
+                        | None => HashMap::<_, _>::new(),
+                    },
                     shell: match node_def.shell.clone() {
                         | Some(v) => Some(v.into()),
                         | None => None,
                     },
                     workdir: node_def.workdir.clone(),
                 };
-                // captured env variables
-                if let Some(v) = &node_def.capture {
-                    let regex = fancy_regex::Regex::new(v)?;
-                    let envs = std::env::vars().collect_vec();
-                    for e in envs {
-                        if regex.is_match(&e.0)? {
-                            rendered_node.env.insert(e.0, e.1);
-                        }
-                    }
-                }
-                // explicitly set vars override
-                rendered_node.env.extend(match node_def.env.clone() {
-                    | Some(v) => v,
-                    | None => HashMap::<_, _>::new(),
-                });
 
                 // default to one matrix entry
                 let invocation_default = vec![crate::plan::Invocation { ..Default::default() }];
@@ -100,23 +76,6 @@ impl Compiler {
                     | Some(m) => m.compile()?,
                     | None => invocation_default,
                 };
-
-                // rendered_node.invocations = match &node_def.matrix {
-                //     | Some(v) => v
-                //         .iter()
-                //         .multi_cartesian_product()
-                //         .map(|x| {
-                //             let mut env = HashMap::<String, String>::new();
-                //             for i in x {
-                //                 if let Some(e) = &i.env {
-                //                     env.extend(e.clone());
-                //                 }
-                //             }
-                //             plan::Invocation { env }
-                //         })
-                //         .collect_vec(),
-                //     | None => matrix_entry_default,
-                // };
 
                 plan.nodes.insert(node.clone(), rendered_node);
                 rendered_stage.nodes.push(node);

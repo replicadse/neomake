@@ -9,7 +9,7 @@ use std::{
 use clap::{Arg, ArgAction};
 use itertools::Itertools;
 
-use crate::{error::Error, plan::ExecutionPlan};
+use crate::{error::Error, plan::ExecutionPlan, workflow::Workflow};
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Privilege {
@@ -128,9 +128,9 @@ pub(crate) enum InitTemplate {
 impl InitTemplate {
     pub(crate) fn render(&self) -> String {
         match self {
-            | InitTemplate::Min => include_str!("../res/templates/min.yaml").to_owned(),
-            | InitTemplate::Max => include_str!("../res/templates/max.yaml").to_owned(),
-            | InitTemplate::Python => include_str!("../res/templates/python.yaml").to_owned(),
+            | InitTemplate::Min => include_str!("../res/templates/min.neomake.yaml").to_owned(),
+            | InitTemplate::Max => include_str!("../res/templates/max.neomake.yaml").to_owned(),
+            | InitTemplate::Python => include_str!("../res/templates/python.neomake.yaml").to_owned(),
         }
     }
 }
@@ -139,6 +139,30 @@ impl InitTemplate {
 pub(crate) enum InitOutput {
     Stdout,
     File(String),
+}
+
+#[derive(Debug)]
+pub(crate) enum Nodes {
+    Arr(HashSet<String>),
+    Regex(String),
+}
+
+impl Nodes {
+    pub(crate) fn compile(self, wf: &Workflow) -> Result<HashSet<String>, Error> {
+        match self {
+            | Self::Arr(v) => Ok(v),
+            | Self::Regex(v) => {
+                let re = fancy_regex::Regex::new(&v)?;
+                let mut hs = HashSet::<String>::new();
+                for node in wf.nodes.keys() {
+                    if re.is_match(&node)? {
+                        hs.insert(node.clone());
+                    }
+                }
+                Ok(hs)
+            },
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -164,7 +188,7 @@ pub(crate) enum Command {
     },
     Plan {
         workflow: String,
-        nodes: HashSet<String>,
+        nodes: Nodes,
         args: HashMap<String, String>,
         format: Format,
     },
@@ -174,7 +198,7 @@ pub(crate) enum Command {
     },
     Describe {
         workflow: String,
-        nodes: HashSet<String>,
+        nodes: Nodes,
         format: Format,
     },
 }
@@ -191,7 +215,7 @@ impl ClapArgumentLoader {
         output_formats.push("toml");
         #[cfg(feature = "format_ron")]
         output_formats.extend(["ron", "ron+p"]);
-        let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec(); // +p is only for the pretty variants
+        let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec(); // strip format modifiers ("+\w")
         assert!(output_formats.len() > 0);
 
         clap::Command::new("neomake")
@@ -268,6 +292,16 @@ impl ClapArgumentLoader {
                             .short('n')
                             .long("node")
                             .action(ArgAction::Append)
+                            .conflicts_with("regex")
+                            .required_unless_present("regex")
+                            .help("Adding a node to the plan."),
+                    )
+                    .arg(
+                        Arg::new("regex")
+                            .short('r')
+                            .long("regex")
+                            .conflicts_with("node")
+                            .required_unless_present("node")
                             .help("Adding a node to the plan."),
                     )
                     .arg(
@@ -335,7 +369,17 @@ impl ClapArgumentLoader {
                             .short('n')
                             .long("node")
                             .action(ArgAction::Append)
+                            .conflicts_with("regex")
+                            .required_unless_present("regex")
                             .help("Adding a node."),
+                    )
+                    .arg(
+                        Arg::new("regex")
+                            .short('r')
+                            .long("regex")
+                            .conflicts_with("node")
+                            .required_unless_present("node")
+                            .help("Adding a node to the plan."),
                     )
                     .arg(
                         Arg::new("output")
@@ -376,12 +420,11 @@ impl ClapArgumentLoader {
             Privilege::Normal
         };
 
-        fn parse_nodes(x: &clap::ArgMatches) -> Result<HashSet<String>, Error> {
-            let nodes = x
-                .get_many::<String>("node")
-                .ok_or(Error::MissingArgument("node".to_owned()))?;
-
-            Ok(HashSet::<String>::from_iter(nodes.into_iter().map(|v| v.to_owned())))
+        fn parse_nodes(x: &clap::ArgMatches) -> Nodes {
+            match x.get_many::<String>("node") {
+                | Some(v) => Nodes::Arr(HashSet::<String>::from_iter(v.into_iter().map(|v| v.to_owned()))),
+                | None => Nodes::Regex(x.get_one::<String>("regex").unwrap().to_owned()),
+            }
         }
 
         let cmd = if let Some(subc) = command.subcommand_matches("man") {
@@ -448,7 +491,7 @@ impl ClapArgumentLoader {
 
             Command::Plan {
                 workflow: std::fs::read_to_string(x.get_one::<String>("workflow").unwrap())?,
-                nodes: parse_nodes(x)?,
+                nodes: parse_nodes(x),
                 args: args_map,
                 format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
@@ -460,7 +503,7 @@ impl ClapArgumentLoader {
         } else if let Some(x) = command.subcommand_matches("describe") {
             Command::Describe {
                 workflow: std::fs::read_to_string(x.get_one::<String>("workflow").unwrap())?,
-                nodes: parse_nodes(x)?,
+                nodes: parse_nodes(x),
                 format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else {

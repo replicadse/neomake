@@ -1,9 +1,11 @@
 version: "0.5"
 
 env:
-  DEFAULT_ENV_VAR: default var
-  OVERRIDE_ENV_VAR_0: old e0
-  OVERRIDE_ENV_VAR_1: old e1
+  capture: "^(CAPTURE)$"
+  vars:
+    DEFAULT_ENV_VAR: default var
+    OVERRIDE_ENV_VAR_0: old e0
+    OVERRIDE_ENV_VAR_1: old e1
 
 .anchor: &anchor |
   printf "test anchor"

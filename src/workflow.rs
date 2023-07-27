@@ -10,10 +10,12 @@ use crate::error::Error;
 pub(crate) struct Workflow {
     /// The version of this workflow file (major.minor).
     pub version: String,
-    /// RegEx for capturing env vars at plan time + baking these into the plan.
-    pub capture: Option<String>,
-    /// Explicitly set env vars.
-    pub env: Option<HashMap<String, String>>,
+    /// Env vars.
+    pub env: Option<Env>,
+
+    // limiting enum ser/deser to be JSON compatible 1-entry maps (due to schema coming from schemars)
+    #[serde(with = "serde_yaml::with::singleton_map_recursive")]
+    #[schemars(with = "HashMap<String, Node>")]
     /// All nodes.
     pub nodes: HashMap<String, Node>,
 }
@@ -41,6 +43,35 @@ impl Workflow {
 
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
+/// Environment variables definitions.
+pub struct Env {
+    /// Regex for capturing and storing env vars during compile time.
+    pub capture: Option<String>,
+    /// Explicitly set env vars.
+    pub vars: Option<HashMap<String, String>>,
+}
+
+impl Env {
+    pub(crate) fn compile(&self) -> Result<HashMap<String, String>, Error> {
+        let mut map = self.vars.clone().or(Some(HashMap::<_, _>::new())).unwrap();
+        match &self.capture {
+            | Some(v) => {
+                let regex = fancy_regex::Regex::new(v)?;
+                let envs = std::env::vars().collect_vec();
+                for e in envs {
+                    if regex.is_match(&e.0)? {
+                        map.insert(e.0, e.1);
+                    }
+                }
+            },
+            | None => {},
+        }
+        Ok(map)
+    }
+}
+
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 /// A task execution environment.
 pub(crate) struct Shell {
     /// The program (like "/bin/bash").
@@ -63,10 +94,8 @@ pub(crate) struct Node {
     /// The tasks to be executed.
     pub tasks: Vec<Task>,
 
-    /// RegEx for capturing env vars at plan time + baking these into the plan.
-    pub capture: Option<String>,
-    /// Explicitly set env vars.
-    pub env: Option<HashMap<String, String>>,
+    /// Env vars.
+    pub env: Option<Env>,
     /// Custom program to execute the scripts.
     pub shell: Option<Shell>,
     /// Custom workdir.

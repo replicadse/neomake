@@ -15,8 +15,6 @@ pub(crate) enum Error {
     // ExperimentalCommand,
     #[error("argument")]
     Argument(String),
-    #[error("missing argument")]
-    MissingArgument(String),
     #[error("child process")]
     ChildProcess(String),
     #[error("task node recursion")]

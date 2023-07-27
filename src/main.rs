@@ -73,6 +73,7 @@ async fn main() -> Result<(), crate::error::Error> {
             format,
         } => {
             let w = Workflow::load(&workflow)?;
+            let nodes = nodes.compile(&w)?;
             let c = Compiler::new(w);
             let x = c.plan(&nodes, &args).await?;
             print!("{}", format.serialize(&x)?);
@@ -90,6 +91,7 @@ async fn main() -> Result<(), crate::error::Error> {
             format,
         } => {
             let w = Workflow::load(&workflow)?;
+            let nodes = nodes.compile(&w)?;
             let c = Compiler::new(w);
             c.describe(&nodes, &format).await?;
             Ok(())
@@ -113,7 +115,7 @@ mod tests {
         let output = Arc::new(Mutex::new(Vec::<String>::new()));
         let output_fn = output.clone();
 
-        let exit_status = InteractiveProcess::new(cmd_proc, move |l| match l {
+        let exit_status = InteractiveProcess::new(&mut cmd_proc, move |l| match l {
             | Ok(v) => {
                 output_fn.lock().unwrap().push(v);
             },
@@ -133,7 +135,7 @@ mod tests {
     #[test]
     fn test_workflow_init_min() {
         assert!(
-            include_str!("../res/templates/min.yaml")
+            include_str!("../res/templates/min.neomake.yaml")
                 == format!("{}\n", exec("cargo run -- workflow init -tmin -o-").unwrap())
         )
     }
@@ -141,7 +143,7 @@ mod tests {
     #[test]
     fn test_workflow_init_max() {
         assert!(
-            include_str!("../res/templates/max.yaml")
+            include_str!("../res/templates/max.neomake.yaml")
                 == format!("{}\n", exec("cargo run -- workflow init -tmax -o-").unwrap())
         )
     }
