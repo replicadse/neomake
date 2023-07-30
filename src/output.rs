@@ -1,5 +1,6 @@
-use std::{error::Error, io::Write, result::Result};
+use std::io::Write;
 
+use anyhow::Result;
 use crossterm::{style::Print, QueueableCommand};
 
 pub(crate) struct Controller {
@@ -17,7 +18,7 @@ impl Controller {
         }
     }
 
-    pub fn print(&mut self, s: &str) -> Result<(), Box<dyn Error>> {
+    pub fn print(&mut self, s: &str) -> Result<()> {
         if !self.enabled {
             return Ok(());
         }

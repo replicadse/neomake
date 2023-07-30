@@ -10,15 +10,15 @@ pub mod reference;
 pub mod workflow;
 
 use std::path::PathBuf;
-use std::result::Result;
 
+use anyhow::Result;
 use args::{InitOutput, ManualFormat};
 use exec::ExecutionEngine;
 
 use crate::{compiler::Compiler, workflow::Workflow};
 
 #[tokio::main]
-async fn main() -> Result<(), crate::error::Error> {
+async fn main() -> Result<()> {
     let cmd = crate::args::ClapArgumentLoader::load()?;
     cmd.validate()?;
 
@@ -103,11 +103,12 @@ async fn main() -> Result<(), crate::error::Error> {
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use anyhow::Result;
     use interactive_process::InteractiveProcess;
 
     // const WORKFLOW_PATH: &'static str = "./test/.neomake.yaml";
 
-    fn exec(command: &str) -> Result<String, crate::error::Error> {
+    fn exec(command: &str) -> Result<String> {
         let mut cmd_proc = std::process::Command::new("sh");
         cmd_proc.arg("-c");
         cmd_proc.arg(command);
@@ -128,7 +129,7 @@ mod tests {
         let output_joined = output.lock().unwrap().join("\n");
         match exit_status.code().unwrap() {
             | 0 => Ok(output_joined),
-            | _ => Err(crate::error::Error::Generic(output_joined)),
+            | _ => Err(crate::error::Error::Generic(output_joined).into()),
         }
     }
 

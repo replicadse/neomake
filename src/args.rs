@@ -1,8 +1,8 @@
+use anyhow::Result;
 use std::{
     collections::{HashMap, HashSet},
     io::Read,
     iter::FromIterator,
-    result::Result,
     str::FromStr,
 };
 
@@ -24,7 +24,7 @@ pub(crate) struct CallArgs {
 }
 
 impl CallArgs {
-    pub(crate) fn validate(&self) -> Result<(), crate::error::Error> {
+    pub(crate) fn validate(&self) -> Result<()> {
         if self.privileges == Privilege::Experimental {
             return Ok(());
         }
@@ -58,7 +58,7 @@ pub(crate) enum Format {
 }
 
 impl Format {
-    pub(crate) fn serialize<T: serde::Serialize>(&self, arg: &T) -> Result<String, crate::error::Error> {
+    pub(crate) fn serialize<T: serde::Serialize>(&self, arg: &T) -> Result<String> {
         match self {
             | crate::args::Format::YAML => Ok(serde_yaml::to_string(arg)?),
             #[cfg(feature = "format_json")]
@@ -88,7 +88,7 @@ impl Format {
         }
     }
 
-    pub(crate) fn deserialize<T: serde::de::DeserializeOwned>(&self, s: &str) -> Result<T, crate::error::Error> {
+    pub(crate) fn deserialize<T: serde::de::DeserializeOwned>(&self, s: &str) -> Result<T> {
         match self {
             | crate::args::Format::YAML => Ok(serde_yaml::from_str::<T>(s)?),
             #[cfg(feature = "format_json")]
@@ -100,7 +100,7 @@ impl Format {
         }
     }
 
-    fn from_arg(arg: &str) -> Result<Self, crate::error::Error> {
+    fn from_arg(arg: &str) -> Result<Self> {
         match arg {
             | "yaml" => Ok(Format::YAML),
             #[cfg(feature = "format_json")]
@@ -113,7 +113,7 @@ impl Format {
             | "ron" => Ok(Format::RON { pretty: false }),
             #[cfg(feature = "format_ron")]
             | "ron+p" => Ok(Format::RON { pretty: true }),
-            | _ => Err(Error::Argument("output".to_owned())),
+            | _ => Err(Error::Argument("output".to_owned()).into()),
         }
     }
 }
@@ -148,7 +148,7 @@ pub(crate) enum Nodes {
 }
 
 impl Nodes {
-    pub(crate) fn compile(self, wf: &Workflow) -> Result<HashSet<String>, Error> {
+    pub(crate) fn compile(self, wf: &Workflow) -> Result<HashSet<String>> {
         match self {
             | Self::Arr(v) => Ok(v),
             | Self::Regex(v) => {
@@ -411,7 +411,7 @@ impl ClapArgumentLoader {
             )
     }
 
-    pub(crate) fn load() -> Result<CallArgs, crate::error::Error> {
+    pub(crate) fn load() -> Result<CallArgs> {
         let command = Self::root_command().get_matches();
 
         let privileges = if command.get_flag("experimental") {
@@ -433,7 +433,7 @@ impl ClapArgumentLoader {
                 format: match subc.get_one::<String>("format").unwrap().as_str() {
                     | "manpages" => ManualFormat::Manpages,
                     | "markdown" => ManualFormat::Markdown,
-                    | _ => return Err(Error::Argument("unknown format".into())),
+                    | _ => return Err(Error::Argument("unknown format".into()).into()),
                 },
             }
         } else if let Some(subc) = command.subcommand_matches("autocomplete") {
@@ -448,7 +448,7 @@ impl ClapArgumentLoader {
                         | "min" => InitTemplate::Min,
                         | "max" => InitTemplate::Max,
                         | "python" => InitTemplate::Python,
-                        | _ => return Err(Error::Argument("unknown template".into())),
+                        | _ => return Err(Error::Argument("unknown template".into()).into()),
                     },
                     output: match x.get_one::<String>("output").unwrap().as_str() {
                         | "-" => InitOutput::Stdout,
@@ -458,7 +458,7 @@ impl ClapArgumentLoader {
             } else if let Some(_) = x.subcommand_matches("schema") {
                 Command::WorkflowSchema
             } else {
-                return Err(Error::UnknownCommand);
+                return Err(Error::UnknownCommand.into());
             }
         } else if let Some(x) = command.subcommand_matches("execute") {
             let mut args_map: HashMap<String, String> = HashMap::new();
@@ -507,7 +507,7 @@ impl ClapArgumentLoader {
                 format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
             }
         } else {
-            return Err(Error::UnknownCommand);
+            return Err(Error::UnknownCommand.into());
         };
 
         let callargs = CallArgs {

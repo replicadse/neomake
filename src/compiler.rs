@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     iter::FromIterator,
@@ -14,11 +15,7 @@ impl Compiler {
         Self { workflow: wf }
     }
 
-    pub async fn plan(
-        &self,
-        nodes: &HashSet<String>,
-        args: &HashMap<String, String>,
-    ) -> Result<plan::ExecutionPlan, Error> {
+    pub async fn plan(&self, nodes: &HashSet<String>, args: &HashMap<String, String>) -> Result<plan::ExecutionPlan> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
         let arg_vals = self.compile_exec_args(args)?;
@@ -86,7 +83,7 @@ impl Compiler {
         Ok(plan)
     }
 
-    pub async fn list(&self, format: &crate::args::Format) -> Result<(), Error> {
+    pub async fn list(&self, format: &crate::args::Format) -> Result<()> {
         #[derive(Debug, serde::Serialize)]
         struct Output {
             nodes: Vec<OutputNode>,
@@ -114,7 +111,7 @@ impl Compiler {
         Ok(())
     }
 
-    pub async fn describe(&self, nodes: &HashSet<String>, format: &crate::args::Format) -> Result<(), Error> {
+    pub async fn describe(&self, nodes: &HashSet<String>, format: &crate::args::Format) -> Result<()> {
         let structure = self.determine_order(&nodes)?;
 
         #[derive(Debug, serde::Serialize)]
@@ -133,7 +130,7 @@ impl Compiler {
         Ok(())
     }
 
-    fn compile_exec_args(&self, args: &HashMap<String, String>) -> Result<serde_json::Value, Error> {
+    fn compile_exec_args(&self, args: &HashMap<String, String>) -> Result<serde_json::Value> {
         fn recursive_add(
             namespace: &mut std::collections::VecDeque<String>,
             parent: &mut serde_json::Value,
@@ -167,7 +164,7 @@ impl Compiler {
         Ok(values_json)
     }
 
-    fn determine_order(&self, exec: &HashSet<String>) -> Result<Vec<HashSet<String>>, Error> {
+    fn determine_order(&self, exec: &HashSet<String>) -> Result<Vec<HashSet<String>>> {
         let mut map = HashMap::<String, Vec<String>>::new();
 
         let mut seen = HashSet::<String>::new();
@@ -182,7 +179,7 @@ impl Compiler {
 
             let c = self.workflow.nodes.get(&next);
             if c.is_none() {
-                return Err(Error::NotFound(next.to_owned()));
+                return Err(Error::NotFound(next.to_owned()).into());
             }
 
             if let Some(pre) = &c.unwrap().pre {
@@ -214,7 +211,7 @@ impl Compiler {
             }
 
             if leafs.len() == 0 {
-                return Err(Error::NodeRecursion);
+                return Err(Error::NodeRecursion.into());
             }
             let set = leafs.iter().map(|x| x.0.clone());
             seen.extend(set.clone());

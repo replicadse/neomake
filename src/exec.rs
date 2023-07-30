@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -27,7 +28,7 @@ impl ExecutionEngine {
         }
     }
 
-    pub async fn execute(&self, plan: plan::ExecutionPlan, workers: usize) -> Result<(), Error> {
+    pub async fn execute(&self, plan: plan::ExecutionPlan, workers: usize) -> Result<()> {
         struct Work {
             workdir: Option<String>,
             env: HashMap<String, String>,
@@ -37,7 +38,7 @@ impl ExecutionEngine {
 
         for stage in &plan.stages {
             let pool = ThreadPool::new(workers);
-            let (signal_tx, signal_rx) = std::sync::mpsc::channel::<Result<(), Error>>();
+            let (signal_tx, signal_rx) = std::sync::mpsc::channel::<Result<()>>();
             let mut signal_cnt = 0;
 
             let nodes = stage.nodes.iter().map(|v| plan.nodes.get(v).unwrap());
@@ -84,7 +85,7 @@ impl ExecutionEngine {
 
                     // executes matrix entry
                     pool.execute(move || {
-                        let res = move || -> Result<(), Box<dyn std::error::Error>> {
+                        let res = move || -> Result<()> {
                             for w in work {
                                 let mut cmd_proc = std::process::Command::new(w.shell.program);
                                 cmd_proc.args(w.shell.args);
@@ -106,7 +107,7 @@ impl ExecutionEngine {
                                 if let Some(code) = exit_status.code() {
                                     if code != 0 {
                                         let err_msg = format!("command \"{}\" failed with code {}", &w.command, code);
-                                        return Err(Box::new(Error::ChildProcess(err_msg)));
+                                        return Err(Error::ChildProcess(err_msg).into());
                                     }
                                 }
                             }
@@ -116,7 +117,7 @@ impl ExecutionEngine {
                             | Ok(..) => t_tx.send(Ok(())).expect("send failed"),
                             | Err(e) => t_tx
                                 // error formatting should be improved
-                                .send(Err(Error::Generic(format!("{:?}", e))))
+                                .send(Err(Error::Generic(format!("{:?}", e)).into()))
                                 .expect("send failed"),
                         }
                     });
@@ -130,7 +131,7 @@ impl ExecutionEngine {
                 .map(|x| x.expect_err("expect"))
                 .collect::<Vec<_>>();
             if errs.len() > 0 {
-                return Err(Error::Many(errs)); // abort at this stage
+                return Err(Error::Many(errs).into()); // abort at this stage
             }
         }
         Ok(())

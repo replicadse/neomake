@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 
 use crate::error::Error;
+use anyhow::Result;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")] // can not deny unknown fields to support YAML anchors
@@ -21,7 +22,7 @@ pub(crate) struct Workflow {
 }
 
 impl Workflow {
-    pub fn load(data: &str) -> Result<Self, Error> {
+    pub fn load(data: &str) -> Result<Self> {
         #[derive(Debug, serde::Deserialize)]
         struct Versioned {
             version: String,
@@ -52,7 +53,7 @@ pub struct Env {
 }
 
 impl Env {
-    pub(crate) fn compile(&self) -> Result<HashMap<String, String>, Error> {
+    pub(crate) fn compile(&self) -> Result<HashMap<String, String>> {
         let mut map = self.vars.clone().or(Some(HashMap::<_, _>::new())).unwrap();
         match &self.capture {
             | Some(v) => {
@@ -117,7 +118,7 @@ pub(crate) enum Matrix {
 }
 
 impl Matrix {
-    pub(crate) fn compile(&self) -> Result<Vec<crate::plan::Invocation>, crate::error::Error> {
+    pub(crate) fn compile(&self) -> Result<Vec<crate::plan::Invocation>> {
         let (dimensions, regex) = match self {
             | Self::Dense { drop, dimensions } => (dimensions, drop),
             | Self::Sparse { keep, dimensions } => (dimensions, keep),
