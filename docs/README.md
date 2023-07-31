@@ -113,10 +113,10 @@ I built this utility because all of the alternatives I have tried, including the
 ## Example configuration
 
 ```yaml
-<-- ../res/templates/max.yaml -->
+<-- ../res/templates/max.neomake.yaml -->
 ```
 
-For more examples, call `neomake config init --help` or look at the schema with `neomake config schema`.
+For more examples, call `neomake workflow init --help` or look at the schema with `neomake workflow schema`.
 
 ## Schema
 
