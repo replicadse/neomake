@@ -199,14 +199,14 @@ Supporting execution of commands in two stages. First plan and render the entire
 <pre><code class="language-bash">neomake workflow init -tpython
 </code></pre>
 <p>Now, execute the <code>count</code> node. Per default, <code>neomake</code> will only use exactly one worker thread and execute the endless embedded python program.</p>
-<pre><code class="language-bash">neomake plan -ccount | neomake x -fyaml
+<pre><code class="language-bash">neomake plan -ccount | neomake x
 </code></pre>
 <p>In order to work on all 4 desired executions (defined as 2x2 matrix), call neomake with the number of worker threads desired. Now you will see that the 4 programs will be executed in parallel.</p>
-<pre><code class="language-bash">neomake plan -ccount | neomake x -fyaml -w4
+<pre><code class="language-bash">neomake plan -ccount | neomake x -w4
 </code></pre>
 <h2 id="graph-execution"><a class="header" href="#graph-execution">Graph execution</a></h2>
 <p>Execute nodes as follows.</p>
-<pre><code class="language-bash">neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oyaml | neomake execute -fyaml
+<pre><code class="language-bash">neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oron | neomake execute -fron
 </code></pre>
 <p>Nodes can define an array of dependenies (other nodes) that need to be executed beforehand. All node executions are deduplicated so that every node is only executed exactly once if requested for invocation or as a prerequisite on any level to any node that is to be executed. Alongside the ability to specify multiple node to be executed per command line call, this feature allows for complex workflows to be executed.<br />
 Let's assume the following graph of nodes and their dependencies:</p>
@@ -251,9 +251,11 @@ stages:
 <pre><code class="language-yaml">version: &quot;0.5&quot;
 
 env:
-  DEFAULT_ENV_VAR: default var
-  OVERRIDE_ENV_VAR_0: old e0
-  OVERRIDE_ENV_VAR_1: old e1
+  capture: &quot;^(CAPTURE)$&quot;
+  vars:
+    DEFAULT_ENV_VAR: default var
+    OVERRIDE_ENV_VAR_0: old e0
+    OVERRIDE_ENV_VAR_1: old e1
 
 .anchor: &amp;anchor |
   printf &quot;test anchor&quot;
@@ -373,7 +375,7 @@ nodes:
           echo &quot;too far!&quot;
 
 </code></pre>
-<p>For more examples, call <code>neomake config init --help</code> or look at the schema with <code>neomake config schema</code>.</p>
+<p>For more examples, call <code>neomake workflow init --help</code> or look at the schema with <code>neomake workflow schema</code>.</p>
 <h2 id="schema"><a class="header" href="#schema">Schema</a></h2>
 <pre><code class="language-json">{
   &quot;$schema&quot;: &quot;http://json-schema.org/draft-07/schema#&quot;,
@@ -385,22 +387,16 @@ nodes:
     &quot;version&quot;
   ],
   &quot;properties&quot;: {
-    &quot;capture&quot;: {
-      &quot;description&quot;: &quot;RegEx for capturing env vars at plan time + baking these into the plan.&quot;,
-      &quot;type&quot;: [
-        &quot;string&quot;,
-        &quot;null&quot;
-      ]
-    },
     &quot;env&quot;: {
-      &quot;description&quot;: &quot;Explicitly set env vars.&quot;,
-      &quot;type&quot;: [
-        &quot;object&quot;,
-        &quot;null&quot;
-      ],
-      &quot;additionalProperties&quot;: {
-        &quot;type&quot;: &quot;string&quot;
-      }
+      &quot;description&quot;: &quot;Env vars.&quot;,
+      &quot;anyOf&quot;: [
+        {
+          &quot;$ref&quot;: &quot;#/definitions/Env&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ]
     },
     &quot;nodes&quot;: {
       &quot;description&quot;: &quot;All nodes.&quot;,
@@ -415,6 +411,30 @@ nodes:
     }
   },
   &quot;definitions&quot;: {
+    &quot;Env&quot;: {
+      &quot;description&quot;: &quot;Environment variables definitions.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;properties&quot;: {
+        &quot;capture&quot;: {
+          &quot;description&quot;: &quot;Regex for capturing and storing env vars during compile time.&quot;,
+          &quot;type&quot;: [
+            &quot;string&quot;,
+            &quot;null&quot;
+          ]
+        },
+        &quot;vars&quot;: {
+          &quot;description&quot;: &quot;Explicitly set env vars.&quot;,
+          &quot;type&quot;: [
+            &quot;object&quot;,
+            &quot;null&quot;
+          ],
+          &quot;additionalProperties&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          }
+        }
+      },
+      &quot;additionalProperties&quot;: false
+    },
     &quot;Matrix&quot;: {
       &quot;description&quot;: &quot;An entry in the n-dimensional matrix for the node execution.&quot;,
       &quot;oneOf&quot;: [
@@ -509,13 +529,6 @@ nodes:
         &quot;tasks&quot;
       ],
       &quot;properties&quot;: {
-        &quot;capture&quot;: {
-          &quot;description&quot;: &quot;RegEx for capturing env vars at plan time + baking these into the plan.&quot;,
-          &quot;type&quot;: [
-            &quot;string&quot;,
-            &quot;null&quot;
-          ]
-        },
         &quot;description&quot;: {
           &quot;description&quot;: &quot;A description of this node.&quot;,
           &quot;type&quot;: [
@@ -524,14 +537,15 @@ nodes:
           ]
         },
         &quot;env&quot;: {
-          &quot;description&quot;: &quot;Explicitly set env vars.&quot;,
-          &quot;type&quot;: [
-            &quot;object&quot;,
-            &quot;null&quot;
-          ],
-          &quot;additionalProperties&quot;: {
-            &quot;type&quot;: &quot;string&quot;
-          }
+          &quot;description&quot;: &quot;Env vars.&quot;,
+          &quot;anyOf&quot;: [
+            {
+              &quot;$ref&quot;: &quot;#/definitions/Env&quot;
+            },
+            {
+              &quot;type&quot;: &quot;null&quot;
+            }
+          ]
         },
         &quot;matrix&quot;: {
           &quot;description&quot;: &quot;An n-dimensional matrix that is executed for every item in its cartesian product.&quot;,
@@ -746,6 +760,9 @@ nodes:
 <p><code>-n</code>, <code>--node &lt;NODE&gt;</code> — Adding a node to the plan.</p>
 </li>
 <li>
+<p><code>-r</code>, <code>--regex &lt;REGEX&gt;</code> — Adding a node to the plan.</p>
+</li>
+<li>
 <p><code>-a</code>, <code>--arg &lt;ARG&gt;</code> — Specifies a value for handlebars placeholders.</p>
 </li>
 <li>
@@ -787,6 +804,9 @@ nodes:
 </li>
 <li>
 <p><code>-n</code>, <code>--node &lt;NODE&gt;</code> — Adding a node.</p>
+</li>
+<li>
+<p><code>-r</code>, <code>--regex &lt;REGEX&gt;</code> — Adding a node to the plan.</p>
 </li>
 <li>
 <p><code>-o</code>, <code>--output &lt;OUTPUT&gt;</code> — The output format.</p>
