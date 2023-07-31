@@ -1,15 +1,13 @@
+use crate::{error::Error, plan::ExecutionPlan, workflow::Workflow};
 use anyhow::Result;
+use clap::{Arg, ArgAction};
+use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
     io::Read,
     iter::FromIterator,
     str::FromStr,
 };
-
-use clap::{Arg, ArgAction};
-use itertools::Itertools;
-
-use crate::{error::Error, plan::ExecutionPlan, workflow::Workflow};
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Privilege {

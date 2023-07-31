@@ -41,13 +41,13 @@ neomake workflow init -tpython
 Now, execute the `count` node. Per default, `neomake` will only use exactly one worker thread and execute the endless embedded python program.
 
 ```bash
-neomake plan -ccount | neomake x -fyaml
+neomake plan -ccount | neomake x
 ```
 
 In order to work on all 4 desired executions (defined as 2x2 matrix), call neomake with the number of worker threads desired. Now you will see that the 4 programs will be executed in parallel.
 
 ```bash
-neomake plan -ccount | neomake x -fyaml -w4
+neomake plan -ccount | neomake x -w4
 ```
 
 ## Graph execution
@@ -55,7 +55,7 @@ neomake plan -ccount | neomake x -fyaml -w4
 Execute nodes as follows.
 
 ```bash
-neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oyaml | neomake execute -fyaml
+neomake plan -f ./test/.neomake.yaml -c bravo -c charlie -oron | neomake execute -fron
 ```
 
 Nodes can define an array of dependenies (other nodes) that need to be executed beforehand. All node executions are deduplicated so that every node is only executed exactly once if requested for invocation or as a prerequisite on any level to any node that is to be executed. Alongside the ability to specify multiple node to be executed per command line call, this feature allows for complex workflows to be executed.\

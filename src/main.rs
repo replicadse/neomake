@@ -20,7 +20,6 @@ use crate::{compiler::Compiler, workflow::Workflow};
 #[tokio::main]
 async fn main() -> Result<()> {
     let cmd = crate::args::ClapArgumentLoader::load()?;
-    cmd.validate()?;
 
     match cmd.command {
         | crate::args::Command::Manual { path, format } => {
