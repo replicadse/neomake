@@ -2,7 +2,7 @@
 name = "neomake"
 version = "0.0.0"
 authors = ["Alexander Weber <aw@voidpointergroup.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "Yet another task runner as make alternative, inspired by GitLab pipelines."
 homepage = "https://replicadse.github.io/neomake"

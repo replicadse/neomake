@@ -1,5 +1,5 @@
 [hooks]
-pre-push = "cargo build --release && ./target/release/neomake plan -n hook:pre-push | ./target/release/neomake execute"
+pre-push = "cargo build --release && ./target/release/neomake plan -n hook:pre-push | ./target/release/neomake execute --no-stderr"
 
 [logging]
 verbose = true
