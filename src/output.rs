@@ -1,7 +1,6 @@
-use std::io::Write;
-
 use anyhow::Result;
 use crossterm::{style::Print, QueueableCommand};
+use std::io::Write;
 
 pub(crate) struct Controller {
     enabled: bool,

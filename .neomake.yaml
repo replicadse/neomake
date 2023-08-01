@@ -7,7 +7,7 @@ nodes:
         dimensions:
           - - env: {}
             - env:
-                RELEASE: "--release"
+                RELEASE: --release
           - - env: {}
             - env:
                 F_JSON: --features format_json
@@ -21,7 +21,7 @@ nodes:
       - script: |
           set -e
           export CARGO_FLAGS="$F_JSON $F_TOML $F_RON $RELEASE"
-          echo $CARGO_FLAGS
+          echo cargo flags: \"$CARGO_FLAGS\"
           cargo build $CARGO_FLAGS
 
   test:

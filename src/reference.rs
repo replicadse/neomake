@@ -1,9 +1,8 @@
+use crate::args::ClapArgumentLoader;
 use anyhow::Result;
 use clap_complete::Shell;
 use clap_mangen::Man;
 use std::{fs::File, io::Write, path::Path};
-
-use crate::args::ClapArgumentLoader;
 
 fn collect_commands() -> Vec<(String, clap::Command)> {
     let mut cmds: Vec<(String, clap::Command)> = Vec::new();

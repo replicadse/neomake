@@ -1,17 +1,15 @@
-use anyhow::Result;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
-
-use interactive_process::InteractiveProcess;
-use threadpool::ThreadPool;
-
 use crate::{
     error::Error,
     output::{self, Controller},
     plan,
 };
+use anyhow::Result;
+use interactive_process::InteractiveProcess;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
+use threadpool::ThreadPool;
 
 pub(crate) struct ExecutionEngine {
     pub output: Arc<Mutex<output::Controller>>,

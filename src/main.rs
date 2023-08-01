@@ -9,13 +9,11 @@ pub mod plan;
 pub mod reference;
 pub mod workflow;
 
-use std::path::PathBuf;
-
+use crate::{compiler::Compiler, workflow::Workflow};
 use anyhow::Result;
 use args::{InitOutput, ManualFormat};
 use exec::ExecutionEngine;
-
-use crate::{compiler::Compiler, workflow::Workflow};
+use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -100,12 +98,9 @@ async fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
     use anyhow::Result;
     use interactive_process::InteractiveProcess;
-
-    // const WORKFLOW_PATH: &'static str = "./test/.neomake.yaml";
+    use std::sync::{Arc, Mutex};
 
     fn exec(command: &str) -> Result<String> {
         let mut cmd_proc = std::process::Command::new("sh");

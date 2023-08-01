@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
-use itertools::Itertools;
-
 use crate::error::Error;
 use anyhow::Result;
+use itertools::Itertools;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")] // can not deny unknown fields to support YAML anchors

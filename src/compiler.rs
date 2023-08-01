@@ -1,10 +1,9 @@
+use crate::{error::Error, plan, workflow::Workflow};
 use anyhow::Result;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     iter::FromIterator,
 };
-
-use crate::{error::Error, plan, workflow::Workflow};
 
 pub(crate) struct Compiler {
     pub workflow: Workflow,
