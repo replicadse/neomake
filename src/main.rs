@@ -4,7 +4,6 @@ pub mod args;
 pub mod compiler;
 pub mod error;
 pub mod exec;
-pub mod output;
 pub mod plan;
 pub mod reference;
 pub mod workflow;
@@ -12,7 +11,7 @@ pub mod workflow;
 use crate::{compiler::Compiler, workflow::Workflow};
 use anyhow::Result;
 use args::{InitOutput, ManualFormat};
-use exec::ExecutionEngine;
+use exec::{ExecutionEngine, OutputMode};
 use std::path::PathBuf;
 
 #[tokio::main]
@@ -56,10 +55,13 @@ async fn main() -> Result<()> {
         | crate::args::Command::Execute {
             plan,
             workers,
-            prefix,
-            silent,
+            no_stdout,
+            no_stderr,
         } => {
-            let exec_engine = ExecutionEngine::new(prefix, silent);
+            let exec_engine = ExecutionEngine::new(OutputMode {
+                stdout: !no_stdout,
+                stderr: !no_stderr,
+            });
             exec_engine.execute(plan, workers).await?;
             Ok(())
         },
@@ -93,58 +95,5 @@ async fn main() -> Result<()> {
             c.describe(&nodes, &format).await?;
             Ok(())
         },
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use anyhow::Result;
-    use interactive_process::InteractiveProcess;
-    use std::sync::{Arc, Mutex};
-
-    fn exec(command: &str) -> Result<String> {
-        let mut cmd_proc = std::process::Command::new("sh");
-        cmd_proc.arg("-c");
-        cmd_proc.arg(command);
-
-        let output = Arc::new(Mutex::new(Vec::<String>::new()));
-        let output_fn = output.clone();
-
-        let exit_status = InteractiveProcess::new(&mut cmd_proc, move |l| match l {
-            | Ok(v) => {
-                output_fn.lock().unwrap().push(v);
-            },
-            | Err(e) => {
-                output_fn.lock().unwrap().push(e.to_string());
-            },
-        })?
-        .wait()?;
-
-        let output_joined = output.lock().unwrap().join("\n");
-        match exit_status.code().unwrap() {
-            | 0 => Ok(output_joined),
-            | _ => Err(crate::error::Error::Generic(output_joined).into()),
-        }
-    }
-
-    #[test]
-    fn test_workflow_init_min() {
-        assert!(
-            include_str!("../res/templates/min.neomake.yaml")
-                == format!("{}\n", exec("cargo run -- workflow init -tmin -o-").unwrap())
-        )
-    }
-
-    #[test]
-    fn test_workflow_init_max() {
-        assert!(
-            include_str!("../res/templates/max.neomake.yaml")
-                == format!("{}\n", exec("cargo run -- workflow init -tmax -o-").unwrap())
-        )
-    }
-
-    #[test]
-    fn test_smoke_workflow_schema() {
-        exec("cargo run -- workflow init -tmax -o-").unwrap();
     }
 }

@@ -1,29 +1,21 @@
-use crate::{
-    error::Error,
-    output::{self, Controller},
-    plan,
-};
+use crate::{error::Error, plan};
 use anyhow::Result;
-use interactive_process::InteractiveProcess;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, process::Stdio};
 use threadpool::ThreadPool;
 
+#[derive(Debug, Clone)]
+pub(crate) struct OutputMode {
+    pub stderr: bool,
+    pub stdout: bool,
+}
+
 pub(crate) struct ExecutionEngine {
-    pub output: Arc<Mutex<output::Controller>>,
+    pub output: OutputMode,
 }
 
 impl ExecutionEngine {
-    pub fn new(prefix: String, silent: bool) -> Self {
-        Self {
-            output: Arc::new(Mutex::new(Controller::new(
-                !silent,
-                prefix,
-                Box::new(std::io::stdout()),
-            ))),
-        }
+    pub fn new(output: OutputMode) -> Self {
+        Self { output }
     }
 
     pub async fn execute(&self, plan: plan::ExecutionPlan, workers: usize) -> Result<()> {
@@ -42,11 +34,7 @@ impl ExecutionEngine {
             let nodes = stage.nodes.iter().map(|v| plan.nodes.get(v).unwrap());
             for node in nodes {
                 for matrix in &node.invocations {
-                    let t_tx = signal_tx.clone();
-                    let t_output = self.output.clone();
-
                     let mut work = Vec::<Work>::new();
-
                     for task in &node.tasks {
                         let workdir = if let Some(workdir) = &task.workdir {
                             Some(workdir.to_owned())
@@ -81,6 +69,8 @@ impl ExecutionEngine {
                         })
                     }
 
+                    let t_tx = signal_tx.clone();
+                    let output = self.output.clone();
                     // executes matrix entry
                     pool.execute(move || {
                         let res = move || -> Result<()> {
@@ -92,32 +82,29 @@ impl ExecutionEngine {
                                     cmd_proc.current_dir(w);
                                 }
                                 cmd_proc.arg(&w.command);
+                                cmd_proc.stdin(Stdio::null());
 
-                                let loc_out = t_output.clone();
-                                let exit_status = InteractiveProcess::new(&mut cmd_proc, move |l| match l {
-                                    | Ok(v) => {
-                                        let mut lock = loc_out.lock().unwrap();
-                                        lock.print(&v).expect("could not print");
-                                    },
-                                    | Err(..) => {},
-                                })?
-                                .wait()?;
-                                if let Some(code) = exit_status.code() {
-                                    if code != 0 {
-                                        let err_msg = format!("command \"{}\" failed with code {}", &w.command, code);
-                                        return Err(Error::ChildProcess(err_msg).into());
-                                    }
+                                if !output.stdout {
+                                    cmd_proc.stdout(Stdio::null());
                                 }
+                                if !output.stderr {
+                                    cmd_proc.stderr(Stdio::null());
+                                }
+
+                                let _ = cmd_proc.spawn()?;
+                                let output = cmd_proc.output()?;
+
+                                match output.status.code().unwrap() {
+                                    | 0 => Ok(()),
+                                    | v => Err(Error::ChildProcess(format!(
+                                        "command: {} failed to execute with code {}",
+                                        w.command, v
+                                    ))),
+                                }?
                             }
                             Ok(())
                         }();
-                        match res {
-                            | Ok(..) => t_tx.send(Ok(())).expect("send failed"),
-                            | Err(e) => t_tx
-                                // error formatting should be improved
-                                .send(Err(Error::Generic(format!("{:?}", e)).into()))
-                                .expect("send failed"),
-                        }
+                        t_tx.send(res).expect("send failed");
                     });
                 }
             }
@@ -126,10 +113,11 @@ impl ExecutionEngine {
                 .iter()
                 .take(signal_cnt)
                 .filter(|x| x.is_err())
-                .map(|x| x.expect_err("expect"))
+                .map(|x| x.expect_err("expecting an err"))
                 .collect::<Vec<_>>();
             if errs.len() > 0 {
-                return Err(Error::Many(errs).into()); // abort at this stage
+                return Err(Error::Many(errs).into());
+                // abort at this stage
             }
         }
         Ok(())

@@ -181,8 +181,8 @@ pub(crate) enum Command {
     Execute {
         plan: ExecutionPlan,
         workers: usize,
-        prefix: String,
-        silent: bool,
+        no_stdout: bool,
+        no_stderr: bool,
     },
     Plan {
         workflow: String,
@@ -338,17 +338,15 @@ impl ClapArgumentLoader {
                             .default_value("1"),
                     )
                     .arg(
-                        Arg::new("prefix")
-                            .short('p')
-                            .long("prefix")
-                            .help("The prefix for child process output that gets printed to STDOUT.")
-                            .default_value("==> "),
+                        Arg::new("no-stdout")
+                            .long("no-stdout")
+                            .help("Disables any output to STDOUT. Useful for preventing leakage of secrets and keeping the logs clean.")
+                            .num_args(0),
                     )
                     .arg(
-                        Arg::new("silent")
-                            .short('s')
-                            .long("silent")
-                            .help("Disables any output to STDOUT. Useful for preventing leakage of secrets.")
+                        Arg::new("no-stderr")
+                            .long("no-stderr")
+                            .help("Disables any output to STDERR. Useful for preventing leakage of secrets and keeping the logs clean.")
                             .num_args(0),
                     ),
             )
@@ -475,8 +473,8 @@ impl ClapArgumentLoader {
                 plan: format.deserialize::<ExecutionPlan>(&plan)?,
                 workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap())
                     .or(Err(Error::Generic("could not parse string".to_owned())))?,
-                prefix: x.get_one::<String>("prefix").unwrap().to_owned(),
-                silent: x.get_flag("silent"),
+                no_stdout: x.get_flag("no-stdout"),
+                no_stderr: x.get_flag("no-stderr"),
             }
         } else if let Some(x) = command.subcommand_matches("plan") {
             let mut args_map: HashMap<String, String> = HashMap::new();
