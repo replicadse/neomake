@@ -1,5 +1,6 @@
 # neomake
 
+[![dependency status](https://deps.rs/repo/github/replicadse/neomake/status.svg)](https://deps.rs/repo/github/replicadse/neomake)\
 `neomake` is a task runner CLI utility that acts as a modern alternative to known utilities like `Makefile`s.
 
 ## Project state
