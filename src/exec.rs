@@ -69,12 +69,12 @@ impl ExecutionEngine {
                         })
                     }
 
-                    let t_tx = signal_tx.clone();
                     let output = self.output.clone();
                     // executes matrix entry
-                    pool.execute(move || {
-                        let res = move || -> Result<()> {
-                            for w in work {
+                    for w in work {
+                        let t_tx = signal_tx.clone();
+                        pool.execute(move || {
+                            let res = move || -> Result<()> {
                                 let mut cmd_proc = std::process::Command::new(w.shell.program);
                                 cmd_proc.args(w.shell.args);
                                 cmd_proc.envs(w.env);
@@ -91,8 +91,7 @@ impl ExecutionEngine {
                                     cmd_proc.stderr(Stdio::null());
                                 }
 
-                                let _ = cmd_proc.spawn()?;
-                                let output = cmd_proc.output()?;
+                                let output = cmd_proc.spawn()?.wait_with_output()?;
 
                                 match output.status.code().unwrap() {
                                     | 0 => Ok(()),
@@ -100,12 +99,12 @@ impl ExecutionEngine {
                                         "command: {} failed to execute with code {}",
                                         w.command, v
                                     ))),
-                                }?
-                            }
-                            Ok(())
-                        }();
-                        t_tx.send(res).expect("send failed");
-                    });
+                                }?;
+                                Ok(())
+                            }();
+                            t_tx.send(res).expect("send failed");
+                        });
+                    }
                 }
             }
 
