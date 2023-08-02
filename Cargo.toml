@@ -7,7 +7,7 @@ license = "MIT"
 description = "Yet another task runner."
 homepage = "https://neomake.sh"
 repository = "https://github.com/replicadse/neomake"
-keywords = ["make", "cli", "task", "runner", "ci", "build", "dag", "graph"]
+keywords = ["make", "cli", "task", "runner"]
 categories = ["command-line-utilities"]
 readme = "docs/README.md"
 
