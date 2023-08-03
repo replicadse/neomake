@@ -1,7 +1,9 @@
-use crate::error::Error;
-use anyhow::Result;
-use itertools::Itertools;
-use std::collections::HashMap;
+use {
+    crate::error::Error,
+    anyhow::Result,
+    itertools::Itertools,
+    std::collections::HashMap,
+};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")] // can not deny unknown fields to support YAML anchors
@@ -88,7 +90,8 @@ pub(crate) struct Node {
     /// Reference nodes that need to be executed prior to this one.
     pub pre: Option<Vec<String>>,
 
-    /// An n-dimensional matrix that is executed for every item in its cartesian product.
+    /// An n-dimensional matrix that is executed for every item in its cartesian
+    /// product.
     pub matrix: Option<Matrix>,
     /// The tasks to be executed.
     pub tasks: Vec<Task>,

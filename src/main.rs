@@ -8,11 +8,22 @@ pub mod plan;
 pub mod reference;
 pub mod workflow;
 
-use crate::{compiler::Compiler, workflow::Workflow};
-use anyhow::Result;
-use args::{InitOutput, ManualFormat};
-use exec::{ExecutionEngine, OutputMode};
-use std::path::PathBuf;
+use {
+    crate::{
+        compiler::Compiler,
+        workflow::Workflow,
+    },
+    anyhow::Result,
+    args::{
+        InitOutput,
+        ManualFormat,
+    },
+    exec::{
+        ExecutionEngine,
+        OutputMode,
+    },
+    std::path::PathBuf,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {

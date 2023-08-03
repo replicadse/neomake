@@ -1,8 +1,18 @@
-use crate::{error::Error, plan, workflow::Workflow};
-use anyhow::Result;
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    iter::FromIterator,
+use {
+    crate::{
+        error::Error,
+        plan,
+        workflow::Workflow,
+    },
+    anyhow::Result,
+    std::{
+        collections::{
+            HashMap,
+            HashSet,
+            VecDeque,
+        },
+        iter::FromIterator,
+    },
 };
 
 pub(crate) struct Compiler {
@@ -97,10 +107,12 @@ impl Compiler {
         }
 
         let mut info = Output {
-            nodes: Vec::from_iter(self.workflow.nodes.iter().map(|c| OutputNode {
-                name: c.0.to_owned(),
-                description: c.1.description.clone(),
-                pre: c.1.pre.clone(),
+            nodes: Vec::from_iter(self.workflow.nodes.iter().map(|c| {
+                OutputNode {
+                    name: c.0.to_owned(),
+                    description: c.1.description.clone(),
+                    pre: c.1.pre.clone(),
+                }
             })),
         };
         info.nodes.sort_by(|a, b| a.name.cmp(&b.name));
@@ -193,7 +205,8 @@ impl Compiler {
         let mut result = Vec::<HashSet<String>>::new();
         while map.len() > 0 {
             // This implementation SHOULD make use of the unstable hash_drain_filter feature
-            // to use the drain_filter method on the hashmap but it's not allowed on stable yet.
+            // to use the drain_filter method on the hashmap but it's not allowed on stable
+            // yet.
             let leafs = map
                 .iter()
                 .filter_map(|(k, v)| {

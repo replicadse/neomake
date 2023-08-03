@@ -1,12 +1,24 @@
-use crate::{error::Error, plan::ExecutionPlan, workflow::Workflow};
-use anyhow::Result;
-use clap::{Arg, ArgAction};
-use itertools::Itertools;
-use std::{
-    collections::{HashMap, HashSet},
-    io::Read,
-    iter::FromIterator,
-    str::FromStr,
+use {
+    crate::{
+        error::Error,
+        plan::ExecutionPlan,
+        workflow::Workflow,
+    },
+    anyhow::Result,
+    clap::{
+        Arg,
+        ArgAction,
+    },
+    itertools::Itertools,
+    std::{
+        collections::{
+            HashMap,
+            HashSet,
+        },
+        io::Read,
+        iter::FromIterator,
+        str::FromStr,
+    },
 };
 
 #[derive(Debug, Eq, PartialEq)]
@@ -213,7 +225,8 @@ impl ClapArgumentLoader {
         output_formats.push("toml");
         #[cfg(feature = "format_ron")]
         output_formats.extend(["ron", "ron+p"]);
-        let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec(); // strip format modifiers ("+\w")
+        // strip format modifiers ("+\w")
+        let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec();
         assert!(output_formats.len() > 0);
 
         clap::Command::new("neomake")
@@ -340,13 +353,19 @@ impl ClapArgumentLoader {
                     .arg(
                         Arg::new("no-stdout")
                             .long("no-stdout")
-                            .help("Disables any output to STDOUT. Useful for preventing leakage of secrets and keeping the logs clean.")
+                            .help(
+                                "Disables any output to STDOUT. Useful for preventing leakage of secrets and keeping \
+                                 the logs clean.",
+                            )
                             .num_args(0),
                     )
                     .arg(
                         Arg::new("no-stderr")
                             .long("no-stderr")
-                            .help("Disables any output to STDERR. Useful for preventing leakage of secrets and keeping the logs clean.")
+                            .help(
+                                "Disables any output to STDERR. Useful for preventing leakage of secrets and keeping \
+                                 the logs clean.",
+                            )
                             .num_args(0),
                     ),
             )

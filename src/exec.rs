@@ -1,7 +1,15 @@
-use crate::{error::Error, plan};
-use anyhow::Result;
-use std::{collections::HashMap, process::Stdio};
-use threadpool::ThreadPool;
+use {
+    crate::{
+        error::Error,
+        plan,
+    },
+    anyhow::Result,
+    std::{
+        collections::HashMap,
+        process::Stdio,
+    },
+    threadpool::ThreadPool,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct OutputMode {
@@ -95,10 +103,12 @@ impl ExecutionEngine {
 
                                 match output.status.code().unwrap() {
                                     | 0 => Ok(()),
-                                    | v => Err(Error::ChildProcess(format!(
-                                        "command: {} failed to execute with code {}",
-                                        w.command, v
-                                    ))),
+                                    | v => {
+                                        Err(Error::ChildProcess(format!(
+                                            "command: {} failed to execute with code {}",
+                                            w.command, v
+                                        )))
+                                    },
                                 }?;
                                 Ok(())
                             }();
