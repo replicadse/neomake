@@ -55,13 +55,13 @@ pub(crate) enum ManualFormat {
 #[derive(Debug)]
 pub(crate) enum Format {
     YAML,
-    #[cfg(feature = "format_json")]
+    #[cfg(feature = "format+json")]
     JSON {
         pretty: bool,
     },
-    #[cfg(feature = "format_toml")]
+    #[cfg(feature = "format+toml")]
     TOML,
-    #[cfg(feature = "format_ron")]
+    #[cfg(feature = "format+ron")]
     RON {
         pretty: bool,
     },
@@ -71,7 +71,7 @@ impl Format {
     pub(crate) fn serialize<T: serde::Serialize>(&self, arg: &T) -> Result<String> {
         match self {
             | crate::args::Format::YAML => Ok(serde_yaml::to_string(arg)?),
-            #[cfg(feature = "format_json")]
+            #[cfg(feature = "format+json")]
             | crate::args::Format::JSON { pretty } => {
                 if *pretty {
                     Ok(serde_json::to_string_pretty(arg)?)
@@ -79,9 +79,9 @@ impl Format {
                     Ok(serde_json::to_string(arg)?)
                 }
             },
-            #[cfg(feature = "format_toml")]
+            #[cfg(feature = "format+toml")]
             | crate::args::Format::TOML => Ok(toml::to_string(arg)?),
-            #[cfg(feature = "format_ron")]
+            #[cfg(feature = "format+ron")]
             | crate::args::Format::RON { pretty } => {
                 if *pretty {
                     Ok(ron::ser::to_string_pretty(
@@ -101,11 +101,11 @@ impl Format {
     pub(crate) fn deserialize<T: serde::de::DeserializeOwned>(&self, s: &str) -> Result<T> {
         match self {
             | crate::args::Format::YAML => Ok(serde_yaml::from_str::<T>(s)?),
-            #[cfg(feature = "format_json")]
+            #[cfg(feature = "format+json")]
             | crate::args::Format::JSON { .. } => Ok(serde_json::from_str::<T>(s)?),
-            #[cfg(feature = "format_toml")]
+            #[cfg(feature = "format+toml")]
             | crate::args::Format::TOML => Ok(toml::from_str::<T>(s)?),
-            #[cfg(feature = "format_ron")]
+            #[cfg(feature = "format+ron")]
             | crate::args::Format::RON { .. } => Ok(ron::from_str::<T>(s)?),
         }
     }
@@ -113,15 +113,15 @@ impl Format {
     fn from_arg(arg: &str) -> Result<Self> {
         match arg {
             | "yaml" => Ok(Format::YAML),
-            #[cfg(feature = "format_json")]
+            #[cfg(feature = "format+json")]
             | "json" => Ok(Format::JSON { pretty: false }),
-            #[cfg(feature = "format_json")]
+            #[cfg(feature = "format+json")]
             | "json+p" => Ok(Format::JSON { pretty: true }),
-            #[cfg(feature = "format_toml")]
+            #[cfg(feature = "format+toml")]
             | "toml" => Ok(Format::TOML),
-            #[cfg(feature = "format_ron")]
+            #[cfg(feature = "format+ron")]
             | "ron" => Ok(Format::RON { pretty: false }),
-            #[cfg(feature = "format_ron")]
+            #[cfg(feature = "format+ron")]
             | "ron+p" => Ok(Format::RON { pretty: true }),
             | _ => Err(Error::Argument("output".to_owned()).into()),
         }
@@ -219,11 +219,11 @@ impl ClapArgumentLoader {
     pub(crate) fn root_command() -> clap::Command {
         #[allow(unused_mut)] // features will add
         let mut output_formats = vec!["yaml"];
-        #[cfg(feature = "format_json")]
+        #[cfg(feature = "format+json")]
         output_formats.extend(["json", "json+p"]);
-        #[cfg(feature = "format_toml")]
+        #[cfg(feature = "format+toml")]
         output_formats.push("toml");
-        #[cfg(feature = "format_ron")]
+        #[cfg(feature = "format+ron")]
         output_formats.extend(["ron", "ron+p"]);
         // strip format modifiers ("+\w")
         let input_formats = output_formats.iter().filter(|v| !v.ends_with("+p")).collect_vec();

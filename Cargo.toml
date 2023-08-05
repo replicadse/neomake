@@ -13,9 +13,9 @@ readme = "docs/README.md"
 
 [features]
 default = []
-format_json = []
-format_ron = ["dep:ron"]
-format_toml = ["dep:toml"]
+"format+json" = []
+"format+ron" = ["dep:ron"]
+"format+toml" = ["dep:toml"]
 
 [dependencies]
 async-trait = "0.1.72"

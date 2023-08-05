@@ -10,13 +10,13 @@ nodes:
                 RELEASE: --release
           - - env: {}
             - env:
-                F_JSON: --features format_json
+                F_JSON: --features format+json
           - - env: {}
             - env:
-                F_TOML: --features format_toml
+                F_TOML: --features format+toml
           - - env: {}
             - env:
-                F_RON: --features format_ron
+                F_RON: --features format+ron
     tasks:
       - script: |
           set -e
