@@ -37,7 +37,7 @@ itertools = "0.11.0"
 threadpool = "1.8.1"
 schemars = "0.8.12"
 fancy-regex = "0.11.0"
-anyhow = "1.0.72"
+anyhow = "1.0.74"
 thiserror = "1.0.44"
 
 [dev-dependencies]
