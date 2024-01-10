@@ -1,20 +1,10 @@
 use {
-    crate::{
-        error::Error,
-        plan::ExecutionPlan,
-        workflow::Workflow,
-    },
+    crate::{error::Error, plan::ExecutionPlan, workflow::Workflow},
     anyhow::Result,
-    clap::{
-        Arg,
-        ArgAction,
-    },
+    clap::{Arg, ArgAction},
     itertools::Itertools,
     std::{
-        collections::{
-            HashMap,
-            HashSet,
-        },
+        collections::{HashMap, HashSet},
         io::Read,
         iter::FromIterator,
         str::FromStr,
@@ -40,9 +30,11 @@ impl CallArgs {
         }
 
         match &self.command {
-            // | Command::Plan { .. } => Err(Box::new(Error::ExperimentalCommand)),
-            | _ => Ok(()),
+            | Command::Watch { .. } => Err(Error::ExperimentalCommand("watch".to_owned()))?,
+            | _ => (),
         }
+
+        Ok(())
     }
 }
 
@@ -211,6 +203,13 @@ pub(crate) enum Command {
         nodes: Nodes,
         format: Format,
     },
+    Watch {
+        workflow: String,
+        watch: String,
+        args: HashMap<String, String>,
+        workers: usize,
+        root: String,
+    },
 }
 
 pub(crate) struct ClapArgumentLoader {}
@@ -262,6 +261,31 @@ impl ClapArgumentLoader {
                             .long("shell")
                             .value_parser(["bash", "zsh", "fish", "elvish", "powershell"])
                             .required(true),
+                    ),
+            )
+            .subcommand(
+                clap::Command::new("watch")
+                    .about("Execute watch.")
+                    .arg(
+                        Arg::new("workflow")
+                            .long("workflow")
+                            .help("The workflow file to use.")
+                            .default_value("./.neomake.yaml"),
+                    )
+                    .arg(clap::Arg::new("watch").short('w').long("watch").required(true))
+                    .arg(clap::Arg::new("root").short('r').long("root").default_value("./"))
+                    .arg(
+                        Arg::new("arg")
+                            .short('a')
+                            .long("arg")
+                            .action(ArgAction::Append)
+                            .help("Specifies a value for handlebars placeholders."),
+                    )
+                    .arg(
+                        Arg::new("workers")
+                            .long("workers")
+                            .help("Defines how many worker threads are created in the OS thread pool.")
+                            .default_value("1"),
                     ),
             )
             .subcommand(
@@ -490,8 +514,7 @@ impl ClapArgumentLoader {
 
             Command::Execute {
                 plan: format.deserialize::<ExecutionPlan>(&plan)?,
-                workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap())
-                    .or(Err(Error::Generic("could not parse string".to_owned())))?,
+                workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap()).unwrap(),
                 no_stdout: x.get_flag("no-stdout"),
                 no_stderr: x.get_flag("no-stderr"),
             }
@@ -520,6 +543,22 @@ impl ClapArgumentLoader {
                 workflow: std::fs::read_to_string(x.get_one::<String>("workflow").unwrap())?,
                 nodes: parse_nodes(x),
                 format: Format::from_arg(x.get_one::<String>("output").unwrap().as_str())?,
+            }
+        } else if let Some(x) = command.subcommand_matches("watch") {
+            let mut args_map: HashMap<String, String> = HashMap::new();
+            if let Some(args) = x.get_many::<String>("arg") {
+                for v_arg in args {
+                    let spl: Vec<&str> = v_arg.splitn(2, "=").collect();
+                    args_map.insert(spl[0].to_owned(), spl[1].to_owned());
+                }
+            }
+
+            Command::Watch {
+                workflow: std::fs::read_to_string(x.get_one::<String>("workflow").unwrap())?,
+                watch: x.get_one::<String>("watch").unwrap().to_owned(),
+                args: args_map,
+                workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap()).unwrap(),
+                root: x.get_one::<String>("root").unwrap().to_owned(),
             }
         } else {
             return Err(Error::UnknownCommand.into());

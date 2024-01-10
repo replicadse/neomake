@@ -103,6 +103,60 @@ stages:
 
 Stages need to run sequentially due to their nodes dependency on nodes executed in a previous stage. Tasks inside a stage are run in parallel (in an OS thread pool of the size given to the `worker` argument). `neomake` is also able to identify and prevent recursions in the execution graph and will fail if the execution of such a sub graph is attempted.
 
+## Watch
+
+`neomake` can automatically run commands based on changes to the filesystem. These are the event kinds that can occurr:
+
+- `access/any`
+- `access/close/any`
+- `access/close/execute`
+- `access/close/other`
+- `access/close/read`
+- `access/close/write`
+- `access/open/any`
+- `access/open/execute`
+- `access/open/other`
+- `access/open/read`
+- `access/open/write`
+- `access/read`
+- `any`
+- `created/any`
+- `created/file`
+- `created/folder`
+- `created/other`
+- `modified/any`
+- `modified/data/any`
+- `modified/data/content`
+- `modified/data/other`
+- `modified/data/size`
+- `modified/metadata/accesstime`
+- `modified/metadata/any`
+- `modified/metadata/extended`
+- `modified/metadata/other`
+- `modified/metadata/ownership`
+- `modified/metadata/permissions`
+- `modified/metadata/writetime`
+- `modified/name/any`
+- `modified/name/both`
+- `modified/name/from`
+- `modified/name/other`
+- `modified/name/to`
+- `modified/other`
+- `other`
+- `removed/any`
+- `removed/file`
+- `removed/folder`
+- `removed/other`
+
+The `filter` field in the `watch` node of the configuration file allows you to specify a filter using a regular expression. This filter is concatenated using the pipe character `|`, composing the event kind (found above) and the relative file path to the root.
+
+Example filter: `^(modified\/data\/content)\|.+(\.rs)$`. This filter would pass for any content change in a file ending with `.rs`.
+
+Examples events:
+- `modified/data/content|src/main.rs`
+- `created/folder|src/db`
+- `created/file|src/module.rs`
+
 ## Why
 
 Why would someone build a task runner if there's many alternatives out there? A few of the most well known task running utilities / frameworks are (non exhaustive):

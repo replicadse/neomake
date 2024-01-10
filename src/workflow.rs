@@ -1,9 +1,4 @@
-use {
-    crate::error::Error,
-    anyhow::Result,
-    itertools::Itertools,
-    std::collections::HashMap,
-};
+use {crate::error::Error, anyhow::Result, itertools::Itertools, std::collections::HashMap};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")] // can not deny unknown fields to support YAML anchors
@@ -19,6 +14,9 @@ pub(crate) struct Workflow {
     #[schemars(with = "HashMap<String, Node>")]
     /// All nodes.
     pub nodes: HashMap<String, Node>,
+
+    /// All watch nodes.
+    pub watch: Option<HashMap<String, WatchExec>>,
 }
 
 impl Workflow {
@@ -97,7 +95,7 @@ pub(crate) struct Node {
     pub tasks: Vec<Task>,
 
     /// Env vars.
-    pub env: Option<Env>,
+    pub env: Option<HashMap<String, String>>,
     /// Custom program to execute the scripts.
     pub shell: Option<Shell>,
     /// Custom workdir.
@@ -188,6 +186,7 @@ impl Matrix {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 /// An entry in the n-dimensional matrix for the node execution.
 pub(crate) struct MatrixCell {
+    /// Environment variables.
     pub env: Option<HashMap<String, String>>,
 }
 
@@ -204,4 +203,27 @@ pub(crate) struct Task {
     pub shell: Option<Shell>,
     /// Custom workdir.
     pub workdir: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+/// Watch definition.
+pub(crate) struct WatchExec {
+    /// Regex filter.
+    pub filter: String,
+    /// Execution steps.
+    #[serde(with = "serde_yaml::with::singleton_map_recursive")]
+    #[schemars(with = "Option<HashMap<String, WatchExec>>")]
+    pub exec: WatchExecStep,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+/// Single execution step.
+pub(crate) enum WatchExecStep {
+    /// Reference and call a node.
+    Node {
+        #[serde(rename = "ref")]
+        ref_: String,
+    },
 }

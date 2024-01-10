@@ -1,13 +1,7 @@
 use {
-    crate::{
-        error::Error,
-        plan,
-    },
+    crate::{error::Error, plan},
     anyhow::Result,
-    std::{
-        collections::HashMap,
-        process::Stdio,
-    },
+    std::{collections::HashMap, process::Stdio},
     threadpool::ThreadPool,
 };
 
@@ -26,7 +20,7 @@ impl ExecutionEngine {
         Self { output }
     }
 
-    pub async fn execute(&self, plan: plan::ExecutionPlan, workers: usize) -> Result<()> {
+    pub fn execute(&self, plan: &plan::ExecutionPlan, workers: usize) -> Result<()> {
         struct Work {
             workdir: Option<String>,
             env: HashMap<String, String>,
@@ -103,12 +97,10 @@ impl ExecutionEngine {
 
                                 match output.status.code().unwrap() {
                                     | 0 => Ok(()),
-                                    | v => {
-                                        Err(Error::ChildProcess(format!(
-                                            "command: {} failed to execute with code {}",
-                                            w.command, v
-                                        )))
-                                    },
+                                    | v => Err(Error::ChildProcess(format!(
+                                        "command: {} failed to execute with code {}",
+                                        w.command, v
+                                    ))),
                                 }?;
                                 Ok(())
                             }();

@@ -1,11 +1,11 @@
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
-    #[error("generic {0}")]
-    Generic(String),
+    // #[error("generic {0}")]
+    // Generic(String),
     #[error("many: {0:?}")]
     Many(Vec<anyhow::Error>),
-
-    // ExperimentalCommand,
+    #[error("experimental command: {0}")]
+    ExperimentalCommand(String),
     #[error("argument {0}")]
     Argument(String),
     #[error("child process {0}")]

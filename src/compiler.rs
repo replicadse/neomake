@@ -1,16 +1,8 @@
 use {
-    crate::{
-        error::Error,
-        plan,
-        workflow::Workflow,
-    },
+    crate::{error::Error, plan, workflow::Workflow},
     anyhow::Result,
     std::{
-        collections::{
-            HashMap,
-            HashSet,
-            VecDeque,
-        },
+        collections::{HashMap, HashSet, VecDeque},
         iter::FromIterator,
     },
 };
@@ -46,9 +38,8 @@ impl Compiler {
                 let mut rendered_node = plan::Node {
                     invocations: vec![],
                     tasks: vec![],
-
                     env: match &node_def.env {
-                        | Some(v) => v.compile()?,
+                        | Some(v) => v.clone(),
                         | None => HashMap::<_, _>::new(),
                     },
                     shell: match node_def.shell.clone() {
@@ -107,12 +98,10 @@ impl Compiler {
         }
 
         let mut info = Output {
-            nodes: Vec::from_iter(self.workflow.nodes.iter().map(|c| {
-                OutputNode {
-                    name: c.0.to_owned(),
-                    description: c.1.description.clone(),
-                    pre: c.1.pre.clone(),
-                }
+            nodes: Vec::from_iter(self.workflow.nodes.iter().map(|c| OutputNode {
+                name: c.0.to_owned(),
+                description: c.1.description.clone(),
+                pre: c.1.pre.clone(),
             })),
         };
         info.nodes.sort_by(|a, b| a.name.cmp(&b.name));

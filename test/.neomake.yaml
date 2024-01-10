@@ -1,8 +1,9 @@
 version: "0.5"
 
-capture: "^(PWD)$"
 env:
-  ENV_GLOBAL: "val_global"
+  capture: "^(PWD)$"
+  vars:
+    ENV_GLOBAL: "val_global"
 
 nodes:
   count:
@@ -59,6 +60,7 @@ nodes:
       - script: |
           set -e
           printf "alpha"
+
   bravo: # with predecessor
     pre:
       - alpha
@@ -66,9 +68,10 @@ nodes:
       - script: |
           set -e
           printf "bravo"
+
   charlie: # environment variables
     env:
-      ENV_NODE: val_NODE
+      ENV_NODE: val_node
     matrix:
       dense:
         dimensions:
@@ -128,33 +131,16 @@ nodes:
         script: |
           set -e
           printf "$0"
+
   golf:
     tasks:
       - script: |
           set -e
           exit 1
 
-  l0_0:
-    pre: []
-    capture: "^(HOME)$"
-    env:
-      HOME: some-home
-    tasks:
-      - script: printf l0_0
-  l1_0:
-    pre:
-      - l0_0
-    tasks:
-      - script: printf l1_0
-  l1_1:
-    capture: "^(HOME)$"
-    pre:
-      - l0_0
-    tasks:
-      - script: printf l1_1
-  l2_0:
-    pre:
-      - l1_0
-      - l1_1
-    tasks:
-      - script: printf l2_0
+watch:
+  all:
+    filter: '^(modified\/data\/content)\|.+(\.rs)$'
+    exec:
+      node:
+        ref: charlie
