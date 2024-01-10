@@ -135,6 +135,8 @@ async fn main() -> Result<()> {
                 stdout: true,
                 stderr: true,
             });
+            let trim_path =
+                std::fs::canonicalize(&root).unwrap().to_str().unwrap().to_owned() + std::path::MAIN_SEPARATOR_STR;
 
             let mut watcher = RecommendedWatcher::new(
                 move |result: Result<notify::Event, notify::Error>| match result {
@@ -201,7 +203,11 @@ async fn main() -> Result<()> {
                             },
                         };
 
-                        let filter = format!("{}|{}", event_str, e.paths[0].to_str().unwrap());
+                        let filter = format!(
+                            "{}|{}",
+                            event_str,
+                            e.paths[0].to_str().unwrap().trim_start_matches(&trim_path)
+                        );
                         if regex.is_match(&filter).unwrap() {
                             dbg!(&filter);
                             exec_engine.execute(&plan, workers).unwrap();
