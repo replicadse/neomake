@@ -211,6 +211,8 @@ pub(crate) struct Task {
 pub(crate) struct WatchExec {
     /// Regex filter.
     pub filter: String,
+    /// Whether to process all messages or skip processing as long as one is running.
+    pub queue: bool,
     /// Execution steps.
     #[serde(with = "serde_yaml::with::singleton_map_recursive")]
     #[schemars(with = "Option<HashMap<String, WatchExec>>")]

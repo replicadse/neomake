@@ -1,4 +1,10 @@
-use std::{collections::HashSet, path::Path};
+use std::{
+    cell::Cell,
+    collections::HashSet,
+    ops::Deref,
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use args::Nodes;
 use notify::{RecommendedWatcher, Watcher};
@@ -82,7 +88,7 @@ async fn main() -> Result<()> {
             let w = Workflow::load(&workflow)?;
             let nodes = nodes.compile(&w)?;
             let c = Compiler::new(w);
-            let x = c.plan(&nodes, &args).await?;
+            let x = c.plan(&nodes, &args)?;
             print!("{}", format.serialize(&x)?);
             Ok(())
         },
@@ -129,19 +135,24 @@ async fn main() -> Result<()> {
             };
             let nodes = nodes.compile(&w)?;
             let regex = fancy_regex::Regex::new(&watch.filter)?;
+            let exec_state = Arc::new(if watch.queue {
+                None
+            } else {
+                Some(Mutex::new(Cell::new(false)))
+            });
             let c = Compiler::new(w);
-            let plan = c.plan(&nodes, &args).await?;
-            let exec_engine = ExecutionEngine::new(OutputMode {
+            let exec_engine = Arc::new(ExecutionEngine::new(OutputMode {
                 stdout: true,
                 stderr: true,
-            });
+            }));
             let trim_path =
                 std::fs::canonicalize(&root).unwrap().to_str().unwrap().to_owned() + std::path::MAIN_SEPARATOR_STR;
+            let exec_state_callback = exec_state.clone();
 
             let mut watcher = RecommendedWatcher::new(
                 move |result: Result<notify::Event, notify::Error>| match result {
                     | Ok(e) => {
-                        let event_str = match &e.kind {
+                        let event_kind = match &e.kind {
                             | notify::EventKind::Create(v) => match &v {
                                 | notify::event::CreateKind::Any => "created/any",
                                 | notify::event::CreateKind::File => "created/file",
@@ -203,14 +214,36 @@ async fn main() -> Result<()> {
                             },
                         };
 
-                        let filter = format!(
-                            "{}|{}",
-                            event_str,
-                            e.paths[0].to_str().unwrap().trim_start_matches(&trim_path)
-                        );
+                        let event_path = e.paths[0].to_str().unwrap().trim_start_matches(&trim_path);
+                        let filter = format!("{}|{}", &event_kind, &event_path);
                         if regex.is_match(&filter).unwrap() {
-                            dbg!(&filter);
-                            exec_engine.execute(&plan, workers).unwrap();
+                            match exec_state_callback.deref() {
+                                | Some(v) => {
+                                    let state_lock = v.lock().unwrap();
+                                    if state_lock.get() {
+                                        return;
+                                    }
+                                    state_lock.set(true);
+                                },
+                                | None => {},
+                            }
+
+                            let mut args_new = args.clone();
+                            args_new.insert("EVENT".to_owned(), filter);
+                            args_new.insert("EVENT_KIND".to_owned(), event_kind.to_owned());
+                            args_new.insert("EVENT_PATH".to_owned(), event_path.to_owned());
+                            let plan = c.plan(&nodes, &args_new).unwrap();
+                            let exec_engine_thread = exec_engine.clone();
+                            let state_thread = exec_state_callback.clone();
+                            std::thread::spawn(move || {
+                                exec_engine_thread.execute(&plan, workers).unwrap();
+                                match state_thread.deref() {
+                                    | Some(v) => {
+                                        v.lock().unwrap().set(false);
+                                    },
+                                    | None => {},
+                                }
+                            });
                         }
                     },
                     | Err(e) => {

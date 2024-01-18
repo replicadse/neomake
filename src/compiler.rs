@@ -16,7 +16,7 @@ impl Compiler {
         Self { workflow: wf }
     }
 
-    pub async fn plan(&self, nodes: &HashSet<String>, args: &HashMap<String, String>) -> Result<plan::ExecutionPlan> {
+    pub fn plan(&self, nodes: &HashSet<String>, args: &HashMap<String, String>) -> Result<plan::ExecutionPlan> {
         let mut hb = handlebars::Handlebars::new();
         hb.set_strict_mode(true);
         let arg_vals = self.compile_exec_args(args)?;

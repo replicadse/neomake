@@ -138,9 +138,19 @@ nodes:
           set -e
           exit 1
 
+  hotel:
+    tasks:
+      - script: |
+          set -e
+          printf "event: {{ EVENT }}\n"
+          printf "event kind: {{ EVENT_KIND }}\n"
+          printf "event path: {{ EVENT_PATH }}\n"
+          sleep 4;
+
 watch:
   all:
-    filter: '^(modified\/data\/content)\|.+(\.rs)$'
+    filter: '^(modified\/data\/content)\|.+(\.yaml)$'
+    queue: true
     exec:
       node:
-        ref: charlie
+        ref: hotel
