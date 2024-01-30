@@ -215,7 +215,7 @@ pub(crate) struct WatchExec {
     pub queue: bool,
     /// Execution steps.
     #[serde(with = "serde_yaml::with::singleton_map_recursive")]
-    #[schemars(with = "Option<HashMap<String, WatchExec>>")]
+    #[schemars(with = "WatchExecStep")]
     pub exec: WatchExecStep,
 }
 
