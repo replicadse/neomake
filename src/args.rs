@@ -1,10 +1,20 @@
 use {
-    crate::{error::Error, plan::ExecutionPlan, workflow::Workflow},
+    crate::{
+        error::Error,
+        plan::ExecutionPlan,
+        workflow::Workflow,
+    },
     anyhow::Result,
-    clap::{Arg, ArgAction},
+    clap::{
+        Arg,
+        ArgAction,
+    },
     itertools::Itertools,
     std::{
-        collections::{HashMap, HashSet},
+        collections::{
+            HashMap,
+            HashSet,
+        },
         io::Read,
         iter::FromIterator,
         str::FromStr,

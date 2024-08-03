@@ -1,4 +1,9 @@
-use {crate::error::Error, anyhow::Result, itertools::Itertools, std::collections::HashMap};
+use {
+    crate::error::Error,
+    anyhow::Result,
+    itertools::Itertools,
+    std::collections::HashMap,
+};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")] // can not deny unknown fields to support YAML anchors
@@ -211,7 +216,8 @@ pub(crate) struct Task {
 pub(crate) struct WatchExec {
     /// Regex filter.
     pub filter: String,
-    /// Whether to process all messages or skip processing as long as one is running.
+    /// Whether to process all messages or skip processing as long as one is
+    /// running.
     pub queue: bool,
     /// Execution steps.
     #[serde(with = "serde_yaml::with::singleton_map_recursive")]
