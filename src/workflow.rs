@@ -32,7 +32,9 @@ impl Workflow {
         }
         let v = serde_yaml::from_str::<Versioned>(data)?;
 
-        if v.version != "0.5" {
+        let major_minor = env!("CARGO_PKG_VERSION").split(".").take(2).join(".");
+        if &major_minor != "0.0" && &v.version != &major_minor {
+            // major.minor must equal
             Err(Error::VersionCompatibility(format!(
                 "workflow version {} is incompatible with this CLI version {}",
                 v.version,
@@ -41,6 +43,12 @@ impl Workflow {
         }
 
         let wf: crate::workflow::Workflow = serde_yaml::from_str(&data)?;
+        let nodes_allow_regex = fancy_regex::Regex::new(r"^[a-zA-Z0-9_-]+$")?;
+        for node in wf.nodes.keys() {
+            if !nodes_allow_regex.is_match(node)? {
+                Err(Error::InvalidNodeName(node.clone()))?
+            }
+        }
         Ok(wf)
     }
 }

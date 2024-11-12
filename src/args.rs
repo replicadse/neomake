@@ -160,7 +160,7 @@ pub(crate) enum Nodes {
 }
 
 impl Nodes {
-    pub(crate) fn compile(self, wf: &Workflow) -> Result<HashSet<String>> {
+    pub(crate) fn select(self, wf: &Workflow) -> Result<HashSet<String>> {
         match self {
             | Self::Arr(v) => Ok(v),
             | Self::Regex(v) => {

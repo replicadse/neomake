@@ -18,4 +18,6 @@ pub(crate) enum Error {
     VersionCompatibility(String),
     #[error("not found {0}")]
     NotFound(String),
+    #[error("invalid node name {0}")]
+    InvalidNodeName(String),
 }

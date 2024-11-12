@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
             format,
         } => {
             let w = Workflow::load(&workflow)?;
-            let nodes = nodes.compile(&w)?;
+            let nodes = nodes.select(&w)?;
             let c = Compiler::new(w);
             let x = c.plan(&nodes, &args)?;
             print!("{}", format.serialize(&x)?);
@@ -120,7 +120,7 @@ async fn main() -> Result<()> {
             format,
         } => {
             let w = Workflow::load(&workflow)?;
-            let nodes = nodes.compile(&w)?;
+            let nodes = nodes.select(&w)?;
             let c = Compiler::new(w);
             c.describe(&nodes, &format).await?;
             Ok(())
@@ -149,7 +149,7 @@ async fn main() -> Result<()> {
             let nodes = match &watch.exec {
                 | WatchExecStep::Node { ref_ } => Nodes::Arr(HashSet::<String>::from_iter([ref_.clone()])),
             };
-            let nodes = nodes.compile(&w)?;
+            let nodes = nodes.select(&w)?;
             let regex = fancy_regex::Regex::new(&watch.filter)?;
             let exec_state = Arc::new(if watch.queue {
                 None
