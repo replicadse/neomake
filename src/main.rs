@@ -4,6 +4,7 @@ use {
         RecommendedWatcher,
         Watcher,
     },
+    signal_hook::iterator::Signals,
     std::{
         cell::Cell,
         collections::HashSet,
@@ -12,6 +13,13 @@ use {
         sync::{
             Arc,
             Mutex,
+        },
+    },
+    tokio::{
+        process::Command,
+        task::{
+            JoinSet,
+            LocalSet,
         },
     },
     workflow::WatchExecStep,
@@ -123,6 +131,39 @@ async fn main() -> Result<()> {
             let nodes = nodes.select(&w)?;
             let c = Compiler::new(w);
             c.describe(&nodes, &format).await?;
+            Ok(())
+        },
+        | crate::args::Command::Multiplex { commands } => {
+            let mut joins = JoinSet::new();
+
+            println!("Executing {} commands:", commands.len());
+            for command in &commands {
+                println!("- {}", command);
+            }
+
+            for command in commands {
+                joins.spawn(async move {
+                    let mut cmd_proc = Command::new("sh");
+                    cmd_proc.args(&["-c", &command]);
+                    cmd_proc.stdin(std::process::Stdio::null());
+                    cmd_proc.stdout(std::io::stdout());
+                    cmd_proc.stderr(std::io::stderr());
+                    let mut child_proc = cmd_proc.spawn().unwrap();
+                    let _ = child_proc.wait().await;
+                });
+            }
+
+            let mut signals = Signals::new([signal_hook::consts::SIGINT]).unwrap();
+            let signals_fut = tokio::spawn(async move { signals.wait() });
+
+            tokio::select! {
+                _ = signals_fut => {
+                    println!("sigint");
+                },
+                _ = joins.join_next() => {}
+            }
+
+            joins.shutdown().await; // eliminate survivors
             Ok(())
         },
         | crate::args::Command::Watch {

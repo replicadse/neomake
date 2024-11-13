@@ -40,6 +40,7 @@ impl CallArgs {
         }
 
         match &self.command {
+            | Command::Multiplex { .. } => Err(Error::ExperimentalCommand("multiplex".to_owned()))?,
             | Command::Watch { .. } => Err(Error::ExperimentalCommand("watch".to_owned()))?,
             | _ => (),
         }
@@ -219,6 +220,9 @@ pub(crate) enum Command {
         args: HashMap<String, String>,
         workers: usize,
         root: String,
+    },
+    Multiplex {
+        commands: Vec<String>,
     },
 }
 
@@ -458,6 +462,22 @@ impl ClapArgumentLoader {
                             .default_value(output_formats.first().unwrap()),
                     ),
             )
+            .subcommand(
+                clap::Command::new("multiplex")
+                    .about("Multiplex commands")
+                    .visible_aliases(&["m", "mp"])
+                    .arg(
+                        clap::Arg::new("command")
+                            .short('c')
+                            .long("command")
+                            .help("A command to be executed.")
+                            .action(ArgAction::Append),
+                    )
+                    .arg(clap::Arg::new("file").short('f').long("file").help(
+                        "Define a commands file. The content will be split per line, which are then interpreted as \
+                         individual commands.",
+                    )),
+            )
     }
 
     pub(crate) fn load() -> Result<CallArgs> {
@@ -570,6 +590,19 @@ impl ClapArgumentLoader {
                 workers: str::parse::<usize>(x.get_one::<String>("workers").unwrap()).unwrap(),
                 root: x.get_one::<String>("root").unwrap().to_owned(),
             }
+        } else if let Some(x) = command.subcommand_matches("multiplex") {
+            let mut commands = x
+                .get_many::<String>("command")
+                .unwrap_or_default()
+                .cloned()
+                .collect_vec();
+            if let Some(file) = x.get_one::<String>("file") {
+                let mut content = String::new();
+                std::fs::File::open(file)?.read_to_string(&mut content)?;
+                let lines = &mut content.lines().map(|v| v.to_owned()).collect::<Vec<_>>();
+                commands.append(lines);
+            }
+            Command::Multiplex { commands }
         } else {
             return Err(Error::UnknownCommand.into());
         };
