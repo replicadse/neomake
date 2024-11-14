@@ -54,9 +54,9 @@
             hoox init
 
             printf "Versions:\n"
-            printf "\trust: $(rustc --version)\n"
-            printf "\thelix: $(hx --version)\n"
-            printf "\tgitui: $(gitui --version)\n"
+            printf "$(rustc --version)\n"
+            printf "$(hx --version)\n"
+            printf "$(gitui --version)\n"
             printf "\n"
           '';
         };
