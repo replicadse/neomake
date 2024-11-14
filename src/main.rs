@@ -4,7 +4,15 @@ use {
         RecommendedWatcher,
         Watcher,
     },
-    signal_hook::iterator::Signals,
+    signal_hook::{
+        consts::{
+            SIGINT,
+            SIGKILL,
+            SIGSTOP,
+            SIGTERM,
+        },
+        iterator::Signals,
+    },
     std::{
         cell::Cell,
         collections::HashSet,
@@ -17,10 +25,7 @@ use {
     },
     tokio::{
         process::Command,
-        task::{
-            JoinSet,
-            LocalSet,
-        },
+        task::JoinSet,
     },
     workflow::WatchExecStep,
 };
@@ -153,12 +158,12 @@ async fn main() -> Result<()> {
                 });
             }
 
-            let mut signals = Signals::new([signal_hook::consts::SIGINT]).unwrap();
+            let mut signals = Signals::new([SIGINT, SIGTERM, SIGKILL, SIGSTOP]).unwrap();
             let signals_fut = tokio::spawn(async move { signals.wait() });
 
             tokio::select! {
                 _ = signals_fut => {
-                    println!("sigint");
+                    println!("signal received... aborting...");
                 },
                 _ = joins.join_next() => {}
             }
