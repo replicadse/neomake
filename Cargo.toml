@@ -42,6 +42,7 @@ thiserror = "1.0.44"
 walkdir = "2.4.0"
 notify = "6.1.1"
 signal-hook = "0.3.17"
+flume = "0.11.1"
 
 [dev-dependencies]
 hoox = "0.3.0"

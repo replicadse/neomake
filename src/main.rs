@@ -1,5 +1,12 @@
 use {
     args::Nodes,
+    crossterm::{
+        cursor::MoveTo,
+        terminal::{
+            Clear,
+            ClearType,
+        },
+    },
     notify::{
         RecommendedWatcher,
         Watcher,
@@ -15,17 +22,31 @@ use {
     },
     std::{
         cell::Cell,
-        collections::HashSet,
+        collections::{
+            HashMap,
+            HashSet,
+        },
+        io::{
+            stdout,
+            BufWriter,
+            Write,
+        },
         ops::Deref,
         path::Path,
         sync::{
             Arc,
             Mutex,
+            RwLock,
         },
+        thread::sleep,
+        time::Duration,
     },
     tokio::{
         process::Command,
-        task::JoinSet,
+        task::{
+            yield_now,
+            JoinSet,
+        },
     },
     workflow::WatchExecStep,
 };
@@ -139,36 +160,64 @@ async fn main() -> Result<()> {
             Ok(())
         },
         | crate::args::Command::Multiplex { commands } => {
-            let mut joins = JoinSet::new();
-
-            println!("Executing {} commands:", commands.len());
-            for command in &commands {
-                println!("- {}", command);
+            let mut command_states = HashMap::<String, String>::new();
+            for command in commands.iter() {
+                command_states.insert(command.clone(), "pending".to_owned());
             }
 
+            let (report_tx, report_rx) = flume::unbounded::<(String, String)>();
+            let report_fut = tokio::spawn(async move {
+                for (cmd, state) in report_rx.iter() {
+                    yield_now().await; // make sure it's abortable
+                    command_states.insert(cmd, state);
+
+                    let mut writer = BufWriter::new(stdout());
+                    crossterm::queue!(writer, Clear(ClearType::All)).unwrap();
+                    crossterm::queue!(writer, MoveTo(0, 0)).unwrap();
+
+                    writeln!(writer, "Executing commands:").unwrap();
+                    for item in command_states.iter() {
+                        writeln!(writer, "⇒ {}", item.0).unwrap();
+                        writeln!(writer, " ↳ Status: {}", item.1).unwrap();
+                    }
+                    writer.flush().unwrap();
+                    sleep(Duration::from_secs(1));
+                }
+            });
+
+            let mut joins = JoinSet::new();
             for command in commands {
+                let report_channel = report_tx.clone();
                 joins.spawn(async move {
                     let mut cmd_proc = Command::new("sh");
                     cmd_proc.args(&["-c", &command]);
                     cmd_proc.stdin(std::process::Stdio::null());
-                    cmd_proc.stdout(std::io::stdout());
-                    cmd_proc.stderr(std::io::stderr());
+                    cmd_proc.stdout(std::process::Stdio::null());
+                    cmd_proc.stderr(std::process::Stdio::null());
                     let mut child_proc = cmd_proc.spawn().unwrap();
-                    let _ = child_proc.wait().await;
+                    let exit_code = child_proc.wait().await.unwrap();
+                    report_channel.send((command.clone(), exit_code.to_string())).unwrap();
+                    dbg!("{} done", &command);
                 });
             }
+            drop(report_tx);
 
-            let mut signals = Signals::new([SIGINT, SIGTERM, SIGKILL, SIGSTOP]).unwrap();
-            let signals_fut = tokio::spawn(async move { signals.wait() });
-
+            let mut signals = Signals::new([SIGINT, SIGTERM]).unwrap();
+            let signals_handle = signals.handle();
+            let abort_fut = tokio::spawn(async move { signals.wait() });
+            let command_fut = tokio::spawn(async move { while let Some(_) = joins.join_next().await {} });
             tokio::select! {
-                _ = signals_fut => {
+                _ = abort_fut => {
                     println!("signal received... aborting...");
                 },
-                _ = joins.join_next() => {}
+                _ = command_fut => {
+                    println!("completed all tasks... shutting down...")
+                },
+                _ = report_fut => {
+                },
             }
+            signals_handle.close();
 
-            joins.shutdown().await; // eliminate survivors
             Ok(())
         },
         | crate::args::Command::Watch {
