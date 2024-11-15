@@ -165,11 +165,13 @@ async fn main() -> Result<()> {
                 command_states.insert(command.clone(), "pending".to_owned());
             }
 
-            let (report_tx, report_rx) = flume::unbounded::<(String, String)>();
+            let (report_tx, report_rx) = flume::unbounded::<Option<(String, String)>>();
             let report_fut = tokio::spawn(async move {
-                for (cmd, state) in report_rx.iter() {
+                for update in report_rx.iter() {
                     yield_now().await; // make sure it's abortable
-                    command_states.insert(cmd, state);
+                    if let Some((cmd, state)) = update {
+                        command_states.insert(cmd, state);
+                    }
 
                     let mut writer = BufWriter::new(stdout());
                     crossterm::queue!(writer, Clear(ClearType::All)).unwrap();
@@ -184,6 +186,7 @@ async fn main() -> Result<()> {
                     sleep(Duration::from_secs(1));
                 }
             });
+            report_tx.send(None).unwrap(); // first draw
 
             let mut joins = JoinSet::new();
             for command in commands {
@@ -196,7 +199,9 @@ async fn main() -> Result<()> {
                     cmd_proc.stderr(std::process::Stdio::null());
                     let mut child_proc = cmd_proc.spawn().unwrap();
                     let exit_code = child_proc.wait().await.unwrap();
-                    report_channel.send((command.clone(), exit_code.to_string())).unwrap();
+                    report_channel
+                        .send(Some((command.clone(), exit_code.to_string())))
+                        .unwrap();
                     dbg!("{} done", &command);
                 });
             }
