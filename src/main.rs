@@ -14,8 +14,6 @@ use {
     signal_hook::{
         consts::{
             SIGINT,
-            SIGKILL,
-            SIGSTOP,
             SIGTERM,
         },
         iterator::Signals,
@@ -162,7 +160,7 @@ async fn main() -> Result<()> {
         | crate::args::Command::Multiplex { commands } => {
             let mut command_states = HashMap::<String, String>::new();
             for command in commands.iter() {
-                command_states.insert(command.clone(), "pending".to_owned());
+                command_states.insert(command.clone(), "PENDING".to_owned());
             }
 
             let (report_tx, report_rx) = flume::unbounded::<Option<(String, String)>>();
@@ -199,10 +197,12 @@ async fn main() -> Result<()> {
                     cmd_proc.stderr(std::process::Stdio::null());
                     let mut child_proc = cmd_proc.spawn().unwrap();
                     let exit_code = child_proc.wait().await.unwrap();
-                    report_channel
-                        .send(Some((command.clone(), exit_code.to_string())))
-                        .unwrap();
-                    dbg!("{} done", &command);
+                    let status = if exit_code.success() {
+                        "SUCCESS".to_owned()
+                    } else {
+                        format!("FAILED ({})", exit_code.code().unwrap())
+                    };
+                    report_channel.send(Some((command.clone(), status))).unwrap();
                 });
             }
             drop(report_tx);
